@@ -1,6 +1,5 @@
 <div align="center">
   <img src="assets/tuxsoc_logo.png" alt="tuxSOC Logo" width="300" />
-  <h1>tuxSOC</h1>
   <p><strong>A Next-Generation Security Operations Center Pipeline</strong></p>
 </div>
 
@@ -12,10 +11,13 @@
 
 The platform operates across six distinct layers, moving data from raw logs to finalized, scored security events presented on a dashboard.
 
+<details>
+<summary><b>Click to view Platform Architecture & Data Flow</b></summary>
+
 ```mermaid
 graph TD
-    classDef layer stroke-width:2px,stroke:#333,fill:#f9f9f9
-    classDef logic fill:#e1f5fe,stroke:#039be5
+    classDef layer stroke-width:2px,stroke:#333,fill:none
+    classDef logic fill:none,stroke:#039be5
     
     subgraph Ingestion["Ingestion"]
         A[FastAPI Receiver] --> B[Log Validator]
@@ -67,6 +69,8 @@ graph TD
     class Ingestion,L1,L2,L3,L4,L5,Storage,L6 layer;
     class D,H,L,O,R,W logic;
 ```
+
+</details>
 
 ## 📂 Project Structure & Module Breakdown
 
