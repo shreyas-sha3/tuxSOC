@@ -1,0 +1,247 @@
+[
+  {
+    "incident_id": "INC-2025-0310-SOC-6F585",
+    "timestamp": "2025-03-10T08:00:00+00:00",
+    "log_type": "network",
+    "raw_event": {
+      "source_ip": "10.0.3.18",
+      "destination_ip": "10.0.2.11",
+      "affected_user": "mlee",
+      "affected_host": null,
+      "port": 22,
+      "protocol": "tcp",
+      "action": "Data Exfiltration",
+      "mitre_technique": "T1110",
+      "timestamp": "2025-03-10T08:00:00+00:00"
+    },
+    "engine_1_anomaly": {
+      "pyod_score": 0.7312,
+      "is_outlier": false,
+      "ueba_flags": [],
+      "anomaly_score": 0.7312,
+      "anomaly_flagged": true
+    },
+    "engine_2_threat_intel": {
+      "ioc_matches": [],
+      "threat_intel_match": false,
+      "mitre_tactic": "Unknown",
+      "mitre_technique": "T0000",
+      "mitre_technique_name": "Unknown"
+    },
+    "engine_3_correlation": {
+      "event_count": 1,
+      "attack_timeline": [
+        {
+          "timestamp": "2025-03-10T08:00:00+00:00",
+          "event": "firewall_action",
+          "detail": "DATA EXFILTRATION from 10.0.3.18 \u2192 10.0.2.11 on port 22"
+        },
+        {
+          "timestamp": "2025-03-10T08:00:00+00:00",
+          "event": "failed_login",
+          "detail": "3 failed login attempts for user 'unknown_user'"
+        },
+        {
+          "timestamp": "2025-03-10T08:00:00+00:00",
+          "event": "anomaly_detected",
+          "detail": "Anomaly detected \u2014 score 0.73, fidelity 0.00"
+        }
+      ]
+    }
+  },
+  {
+    "incident_id": "INC-2025-0310-SOC-D3A42",
+    "timestamp": "2025-03-10T08:03:00+00:00",
+    "log_type": "network",
+    "raw_event": {
+      "source_ip": "198.199.108.12",
+      "destination_ip": "10.0.2.16",
+      "affected_user": "root",
+      "affected_host": null,
+      "port": 22,
+      "protocol": "tcp",
+      "action": "Data Exfiltration",
+      "mitre_technique": "T1003",
+      "timestamp": "2025-03-10T08:03:00+00:00"
+    },
+    "engine_1_anomaly": {
+      "pyod_score": 0.7425,
+      "is_outlier": true,
+      "ueba_flags": [],
+      "anomaly_score": 0.7425,
+      "anomaly_flagged": true
+    },
+    "engine_2_threat_intel": {
+      "ioc_matches": [],
+      "threat_intel_match": false,
+      "mitre_tactic": "Unknown",
+      "mitre_technique": "T0000",
+      "mitre_technique_name": "Unknown"
+    },
+    "engine_3_correlation": {
+      "event_count": 1,
+      "attack_timeline": [
+        {
+          "timestamp": "2025-03-10T08:03:00+00:00",
+          "event": "firewall_action",
+          "detail": "DATA EXFILTRATION from 198.199.108.12 \u2192 10.0.2.16 on port 22"
+        },
+        {
+          "timestamp": "2025-03-10T08:03:00+00:00",
+          "event": "anomaly_detected",
+          "detail": "Anomaly detected \u2014 score 0.74, fidelity 0.67"
+        }
+      ]
+    }
+  },
+  {
+    "incident_id": "INC-2025-0310-SOC-BD250",
+    "timestamp": "2025-03-10T08:06:00+00:00",
+    "log_type": "network",
+    "raw_event": {
+      "source_ip": "10.0.2.11",
+      "destination_ip": "10.0.2.16",
+      "affected_user": "agarwal",
+      "affected_host": null,
+      "port": 80,
+      "protocol": "udp",
+      "action": "Brute Force",
+      "mitre_technique": "T1110",
+      "timestamp": "2025-03-10T08:06:00+00:00"
+    },
+    "engine_1_anomaly": {
+      "pyod_score": 0.7301,
+      "is_outlier": false,
+      "ueba_flags": [],
+      "anomaly_score": 0.7301,
+      "anomaly_flagged": true
+    },
+    "engine_2_threat_intel": {
+      "ioc_matches": [],
+      "threat_intel_match": false,
+      "mitre_tactic": "Unknown",
+      "mitre_technique": "T0000",
+      "mitre_technique_name": "Unknown"
+    },
+    "engine_3_correlation": {
+      "event_count": 1,
+      "attack_timeline": [
+        {
+          "timestamp": "2025-03-10T08:06:00+00:00",
+          "event": "firewall_action",
+          "detail": "BRUTE FORCE from 10.0.2.11 \u2192 10.0.2.16 on port 80"
+        },
+        {
+          "timestamp": "2025-03-10T08:06:00+00:00",
+          "event": "failed_login",
+          "detail": "1 failed login attempts for user 'unknown_user'"
+        },
+        {
+          "timestamp": "2025-03-10T08:06:00+00:00",
+          "event": "anomaly_detected",
+          "detail": "Anomaly detected \u2014 score 0.73, fidelity 0.00"
+        }
+      ]
+    }
+  },
+  {
+    "incident_id": "INC-2025-0310-SOC-C437D",
+    "timestamp": "2025-03-10T08:09:00+00:00",
+    "log_type": "network",
+    "raw_event": {
+      "source_ip": "10.0.3.10",
+      "destination_ip": "10.0.3.16",
+      "affected_user": "SYSTEM",
+      "affected_host": null,
+      "port": 22,
+      "protocol": "udp",
+      "action": "Data Exfiltration",
+      "mitre_technique": "T1021",
+      "timestamp": "2025-03-10T08:09:00+00:00"
+    },
+    "engine_1_anomaly": {
+      "pyod_score": 0.7259,
+      "is_outlier": false,
+      "ueba_flags": [],
+      "anomaly_score": 0.7259,
+      "anomaly_flagged": true
+    },
+    "engine_2_threat_intel": {
+      "ioc_matches": [],
+      "threat_intel_match": false,
+      "mitre_tactic": "Unknown",
+      "mitre_technique": "T0000",
+      "mitre_technique_name": "Unknown"
+    },
+    "engine_3_correlation": {
+      "event_count": 1,
+      "attack_timeline": [
+        {
+          "timestamp": "2025-03-10T08:09:00+00:00",
+          "event": "firewall_action",
+          "detail": "DATA EXFILTRATION from 10.0.3.10 \u2192 10.0.3.16 on port 22"
+        },
+        {
+          "timestamp": "2025-03-10T08:09:00+00:00",
+          "event": "failed_login",
+          "detail": "3 failed login attempts for user 'unknown_user'"
+        },
+        {
+          "timestamp": "2025-03-10T08:09:00+00:00",
+          "event": "anomaly_detected",
+          "detail": "Anomaly detected \u2014 score 0.73, fidelity 0.00"
+        }
+      ]
+    }
+  },
+  {
+    "incident_id": "INC-2025-0310-SOC-012F1",
+    "timestamp": "2025-03-10T08:12:00+00:00",
+    "log_type": "network",
+    "raw_event": {
+      "source_ip": "10.0.3.14",
+      "destination_ip": "10.0.2.11",
+      "affected_user": "agarwal",
+      "affected_host": null,
+      "port": 22,
+      "protocol": "tcp",
+      "action": "Authentication Failure",
+      "mitre_technique": "T1110",
+      "timestamp": "2025-03-10T08:12:00+00:00"
+    },
+    "engine_1_anomaly": {
+      "pyod_score": 0.7365,
+      "is_outlier": false,
+      "ueba_flags": [],
+      "anomaly_score": 0.7365,
+      "anomaly_flagged": true
+    },
+    "engine_2_threat_intel": {
+      "ioc_matches": [],
+      "threat_intel_match": false,
+      "mitre_tactic": "Unknown",
+      "mitre_technique": "T0000",
+      "mitre_technique_name": "Unknown"
+    },
+    "engine_3_correlation": {
+      "event_count": 1,
+      "attack_timeline": [
+        {
+          "timestamp": "2025-03-10T08:12:00+00:00",
+          "event": "firewall_action",
+          "detail": "AUTHENTICATION FAILURE from 10.0.3.14 \u2192 10.0.2.11 on port 22"
+        },
+        {
+          "timestamp": "2025-03-10T08:12:00+00:00",
+          "event": "failed_login",
+          "detail": "2 failed login attempts for user 'unknown_user'"
+        },
+        {
+          "timestamp": "2025-03-10T08:12:00+00:00",
+          "event": "anomaly_detected",
+          "detail": "Anomaly detected \u2014 score 0.74, fidelity 0.00"
+        }
+      ]
+    }
+  }
+]
