@@ -1,0 +1,1 @@
+device_id=SENSOR-01 device_type=temperature_sensor topic=factory/temp telemetry_value=72.4

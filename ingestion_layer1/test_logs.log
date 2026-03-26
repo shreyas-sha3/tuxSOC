@@ -1,0 +1,5 @@
+<34>Mar 25 10:15:23 fw01 kernel: SRC=192.168.1.5 DST=10.0.0.1 PROTO=TCP SPT=54321 DPT=22 LEN=60
+
+<34>Mar 25 10:16:00 web01 HTTP POST /admin/login status=403 user_agent=sqlmap
+
+device_id=SENSOR-01 device_type=temperature_sensor topic=factory/temp telemetry_value=72.4
