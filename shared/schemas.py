@@ -27,3 +27,12 @@ class ScoredIncidentOutput(BaseModel):
     base_score: float
     severity: str
     requires_auto_block: bool
+
+class Layer5Input(BaseModel):
+    event_id: str
+    base_score: float
+    severity: str
+    requires_auto_block: bool
+    attacker_ip: str = "Unknown"
+    affected_entity: str = "Unknown"
+    intent: str = "Unknown Threat"

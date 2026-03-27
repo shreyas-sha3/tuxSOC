@@ -85,3 +85,7 @@ def process_incident(incident_data: LLMIncidentInput) -> ScoredIncidentOutput:
         severity=severity,
         requires_auto_block=requires_auto_block,
     )
+if __name__ == "__main__":
+    import uvicorn
+    # Run Layer 4 on port 8004
+    uvicorn.run(app, host="0.0.0.0", port=8004)
