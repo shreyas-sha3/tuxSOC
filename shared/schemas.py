@@ -1,15 +1,29 @@
-from pydantic import BaseModel
-from typing import Dict, Optional
+from pydantic import BaseModel, Field
+from typing import Dict, List, Optional
 
-# What LLM will send you
+class CVSSImpact(BaseModel):
+    metric: str
+    escalate_to: str
+
+class CISViolation(BaseModel):
+    rule_id: str
+    cvss_impact: CVSSImpact
+
+class AIAnalysis(BaseModel):
+    intent: str
+    severity: str
+    cvss_vector: Dict[str, str]
+    narrative: str
+    recommended_actions: List[str]
+    ai_failed: bool
+    cis_violations: List[CISViolation] = Field(default_factory=list)
+
 class LLMIncidentInput(BaseModel):
-    incident_id: str
-    cvss: Dict[str, str]
-    threat_summary: Optional[str] = "No summary provided"
+    event_id: str
+    ai_analysis: AIAnalysis
 
-# send to the Response Layer
 class ScoredIncidentOutput(BaseModel):
-    incident_id: str
-    cvss_vector: str
+    event_id: str
     base_score: float
     severity: str
+    requires_auto_block: bool
