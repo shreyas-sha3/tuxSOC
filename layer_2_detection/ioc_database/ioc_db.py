@@ -20,10 +20,8 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 # Default DB path — override via env IOC_DB_PATH or config.py
-DEFAULT_DB_PATH = os.environ.get(
-    "IOC_DB_PATH",
-    os.path.join(os.path.dirname(__file__), "ioc_store.db")
-)
+
+DEFAULT_DB_PATH = os.path.join(os.path.dirname(__file__), "ioc_store.db")
 
 
 @contextmanager

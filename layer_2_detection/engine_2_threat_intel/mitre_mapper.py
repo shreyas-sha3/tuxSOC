@@ -52,9 +52,28 @@ _FALLBACK_MAP = {
 }
 
 
-# ──────────────────────────────────────────────────────────────
-# Main mapper
-# ──────────────────────────────────────────────────────────────
+def _lookup_by_technique_id(technique_id: str, db_path: str) -> dict | None:
+    """
+    Direct technique_id lookup — bypasses keyword search entirely.
+    Queries the mitre_mappings table by technique_id column directly.
+    """
+    import sqlite3
+    try:
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT * FROM mitre_mappings WHERE technique_id = ? AND 1=1",
+            (technique_id.strip().upper(),)
+        )
+        row = cur.fetchone()
+        conn.close()
+        if row:
+            return dict(row)
+    except Exception as e:
+        logger.warning("Direct technique_id lookup failed: %s", e)
+    return None
+
 
 def map_to_mitre(
         ioc_matches: list[str],
@@ -63,38 +82,58 @@ def map_to_mitre(
         raw_event: dict | None = None
     ) -> dict:
 
-    # ──────────────────────────────────────────────────────────
-    # STEP 1 — direct MITRE technique from event
-    # ──────────────────────────────────────────────────────────
-
+    # ── STEP 1 — direct technique_id from raw_event ──────────────────
     if raw_event:
+        technique = str(raw_event.get("mitre_technique") or "").strip().upper()
+        logger.debug("MITRE technique from event: %s", technique)
 
-        technique = raw_event.get("mitre_technique")
+        if technique and technique not in ("", "T0000"):
 
-        if technique:
+            # Direct DB lookup by technique_id column
+            hit = _lookup_by_technique_id(technique, db_path)
 
-            db_hits = lookup_mitre(keyword=technique, db_path=db_path)
-
-            if db_hits:
-
-                hit = db_hits[0]
-
+            if hit:
                 return {
-                    "mitre_tactic": hit["tactic"],
-                    "mitre_technique": hit["technique_id"],
+                    "mitre_tactic":         hit["tactic"],
+                    "mitre_technique":      hit["technique_id"],
                     "mitre_technique_name": hit["technique_name"],
-                    "all_techniques": [
-                        {
-                            "technique_id": hit["technique_id"],
-                            "technique_name": hit["technique_name"],
-                            "tactic": hit["tactic"],
-                            "signal": "direct_event_mapping"
-                        }
-                    ]
+                    "all_techniques": [{
+                        "technique_id":   hit["technique_id"],
+                        "technique_name": hit["technique_name"],
+                        "tactic":         hit["tactic"],
+                        "signal":         "direct_event_mapping"
+                    }]
+                }
+
+            # DB miss — inline fallback by technique_id
+            _ID_FALLBACK = {
+                "T1110": ("Credential Access",   "Brute Force"),
+                "T1078": ("Defense Evasion",     "Valid Accounts"),
+                "T1041": ("Exfiltration",        "Exfiltration Over C2 Channel"),
+                "T1059": ("Execution",           "Command and Scripting"),
+                "T1021": ("Lateral Movement",    "Remote Services"),
+                "T1071": ("Command and Control", "App Layer Protocol"),
+                "T1055": ("Defense Evasion",     "Process Injection"),
+                "T1498": ("Impact",              "Network DoS"),
+                "T1557": ("Credential Access",   "Adversary-in-the-Middle"),
+                "T1565": ("Impact",              "Data Manipulation"),
+                "T1133": ("Persistence",         "External Remote Services"),
+                "T1190": ("Initial Access",      "Exploit Public-Facing"),
+            }
+            if technique in _ID_FALLBACK:
+                tactic, tname = _ID_FALLBACK[technique]
+                return {
+                    "mitre_tactic":         tactic,
+                    "mitre_technique":      technique,
+                    "mitre_technique_name": tname,
+                    "all_techniques": [{
+                        "technique_id": technique, "technique_name": tname,
+                        "tactic": tactic, "signal": "direct_event_mapping_fallback"
+                    }]
                 }
 
     # ──────────────────────────────────────────────────────────
-    # STEP 2 — combine IOC + UEBA signals
+    # STEP 2 — build candidate techniques from signals
     # ──────────────────────────────────────────────────────────
 
     all_signals = list(dict.fromkeys(ioc_matches + ueba_flags))
@@ -107,52 +146,44 @@ def map_to_mitre(
             "all_techniques": []
         }
 
-    found_techniques = []
-
-    # ──────────────────────────────────────────────────────────
-    # STEP 3 — database lookup
-    # ──────────────────────────────────────────────────────────
+    technique_scores = {}
 
     for signal in all_signals:
-
         db_hits = lookup_mitre(
             keyword=signal.replace("_", " "),
             db_path=db_path
         )
 
-        if db_hits:
-
-            for hit in db_hits:
-
-                entry = {
-                    "technique_id": hit["technique_id"],
-                    "technique_name": hit["technique_name"],
-                    "tactic": hit["tactic"],
-                    "signal": signal
-                }
-
-                if entry not in found_techniques:
-                    found_techniques.append(entry)
-
-        # ──────────────────────────────────────────────────────
-        # STEP 4 — fallback mapping
-        # ──────────────────────────────────────────────────────
-
-        elif signal in _FALLBACK_MAP:
-
+        if not db_hits and signal in _FALLBACK_MAP:
             tid, tactic, tname = _FALLBACK_MAP[signal]
+            db_hits = [{"technique_id": tid, "tactic": tactic, "technique_name": tname}]
 
-            entry = {
-                "technique_id": tid,
-                "technique_name": tname,
-                "tactic": tactic,
-                "signal": signal
-            }
+        for hit in db_hits:
+            tid = hit["technique_id"]
+            if tid not in technique_scores:
+                technique_scores[tid] = {
+                    "score": 0.0,
+                    "tactic": hit["tactic"],
+                    "technique_name": hit["technique_name"],
+                    "signals": []
+                }
+            # Add score based on signal type
+            if signal in ioc_matches:
+                technique_scores[tid]["score"] += 0.5
+            elif signal in ueba_flags:
+                technique_scores[tid]["score"] += 0.3
+            technique_scores[tid]["signals"].append(signal)
 
-            if entry not in found_techniques:
-                found_techniques.append(entry)
+    # Add anomaly context if present
+    anomaly_bonus = 0.0
+    if raw_event and raw_event.get("anomaly_score", 0) > 0.7:
+        anomaly_bonus = 0.2
+        for tid in technique_scores:
+            technique_scores[tid]["score"] += anomaly_bonus
 
-    if not found_techniques:
+    logger.debug("MITRE candidate techniques: %s", technique_scores)
+
+    if not technique_scores:
         return {
             "mitre_tactic": "Unknown",
             "mitre_technique": "T0000",
@@ -160,16 +191,21 @@ def map_to_mitre(
             "all_techniques": []
         }
 
-    # ──────────────────────────────────────────────────────────
-    # STEP 5 — choose primary technique
-    # IOC > UEBA priority
-    # ──────────────────────────────────────────────────────────
+    # Find the technique with the highest score
+    best_tid = max(technique_scores, key=lambda tid: technique_scores[tid]["score"])
+    best = technique_scores[best_tid]
 
-    primary = found_techniques[0]
+    logger.debug("MITRE selected technique: %s", best)
+
+    # Build ranked list
+    ranked_list = [
+        {"technique_id": tid, "score": data["score"]}
+        for tid, data in sorted(technique_scores.items(), key=lambda x: x[1]["score"], reverse=True)
+    ]
 
     return {
-        "mitre_tactic": primary["tactic"],
-        "mitre_technique": primary["technique_id"],
-        "mitre_technique_name": primary["technique_name"],
-        "all_techniques": found_techniques
+        "mitre_tactic": best["tactic"],
+        "mitre_technique": best_tid,
+        "mitre_technique_name": best["technique_name"],
+        "all_techniques": ranked_list
     }

@@ -175,7 +175,8 @@ def remove_ioc(ioc_id: int):
 
 @ioc_router.post("/bulk", summary="Bulk import IOC entries from a list")
 def bulk_import(items: List[IOCBulkItem]):
-    results = {"inserted": 0, "errors": []}
+    inserted: int = 0
+    errors_list: list = []
     for item in items:
         try:
             insert_ioc(
@@ -183,10 +184,10 @@ def bulk_import(items: List[IOCBulkItem]):
                 threat_type=item.threat_type, severity=item.severity,
                 source=item.source, added_by="bulk_import"
             )
-            results["inserted"] += 1
+            inserted += 1  # type: ignore
         except Exception as e:
-            results["errors"].append({"value": item.value, "error": str(e)})
-    return results
+            errors_list.append({"value": item.value, "error": str(e)})
+    return {"inserted": inserted, "errors": errors_list}
 
 
 # ---------------------------------------------------------------------------

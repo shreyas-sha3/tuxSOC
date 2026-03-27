@@ -77,7 +77,7 @@ def match(raw_event: dict, log_type: str,
     ioc_details   = []
     cis_violations = []
     iot_hits      = []
-
+    print("IOC CHECK:", raw_event.get("source_ip"), raw_event.get("destination_ip"))
     # ---- IP matching ----
     for ip_key in ("source_ip", "dest_ip"):
         ip = fields.get(ip_key)
@@ -179,6 +179,9 @@ def match(raw_event: dict, log_type: str,
     threat_intel_match = bool(ioc_matches or cis_violations or iot_hits)
 
     return {
-    "ioc_matches": ioc_matches,
-    "ioc_confidence": round(len(ioc_matches) * 0.2, 2)
+    "ioc_matches":         ioc_matches,
+    "matched_ioc_details": ioc_details,
+    "iot_threshold_hits":  iot_hits,
+    "threat_intel_match":  bool(ioc_matches or iot_hits),
+    "ioc_confidence":      round(len(ioc_matches) * 0.2, 2),
 }

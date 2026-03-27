@@ -1,0 +1,56 @@
+- cisdata
+  - benchmarks.json
+  - benchmarks_cisco_firewall.json
+  - benchmarks_firepower.json
+  - benchmarks_iosxe16.json
+  - benchmarks_iosxe17.json
+  - benchmarks_iosxr7.json
+  - benchmarks_nxos.json
+- detection_orchestrator.py
+- engine_1_anomaly
+  - anomaly_orchestrator.py
+  - pyod_detector.py
+  - ueba_scorer.py
+  - __init__.py
+  - __pycache__
+    - anomaly_orchestrator.cpython-313.pyc
+    - pyod_detector.cpython-313.pyc
+    - ueba_scorer.cpython-313.pyc
+- engine_2_threat_intel
+  - intel_orchestrator.py
+  - ioc_matcher.py
+  - mitre_mapper.py
+  - __init__.py
+  - __pycache__
+    - intel_orchestrator.cpython-313.pyc
+    - ioc_matcher.cpython-313.pyc
+    - mitre_mapper.cpython-313.pyc
+    - __init__.cpython-313.pyc
+- engine_3_correlation
+  - correlation_orchestrator.py
+  - event_linker.py
+  - timeline_builder.py
+  - __init__.py
+  - __pycache__
+    - correlation_orchestrator.cpython-313.pyc
+    - event_linker.cpython-313.pyc
+    - timeline_builder.cpython-313.pyc
+- ioc_database
+  - auto_enricher.py
+  - ioc_api.py
+  - ioc_db.py
+  - ioc_store.db
+  - __init__.py
+  - __pycache__
+    - auto_enricher.cpython-313.pyc
+    - cis_loader.cpython-313.pyc
+    - ioc_db.cpython-313.pyc
+- ioc_store.db
+- layer1_output.json
+- layer2_output.json
+- logtest.txt
+- project_structure.text
+- quicktest.py
+- __init__.py
+- __pycache__
+  - detection_orchestrator.cpython-313.pyc
