@@ -2,7 +2,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Body
 from fastapi.responses import JSONResponse
 from ai_orchestrator import run_ai_analysis
 
@@ -18,7 +18,7 @@ app = FastAPI(
 
 @app.get("/health")
 def health():
-    return {"status": "online", "engine": "llama3-8b"}
+    return {"status": "online", "engine": "llama3.2-3b-optimized"}
 
 
 # ─────────────────────────────────────────
@@ -26,16 +26,13 @@ def health():
 # ─────────────────────────────────────────
 
 @app.post("/analyze")
-async def analyze(request: Request):
+async def analyze(data: dict = Body(...)): # Change this line
     """
-    Accepts a JSON incident payload (dict or list).
-    Returns the full AI analysis with 5 canonical keys:
-      intent, severity, cvss_vector, narrative, recommended_actions
+    Accepts a JSON incident payload. 
+    Returns the full AI analysis.
     """
-    try:
-        data = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON payload.")
+    # You no longer need 'data = await request.json()' 
+    # FastAPI handles it for you now!
 
     try:
         result = run_ai_analysis(data)

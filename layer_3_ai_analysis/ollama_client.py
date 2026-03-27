@@ -24,7 +24,7 @@ from langchain_ollama import OllamaLLM
 # ─────────────────────────────────────────
 
 OLLAMA_BASE_URL    = "http://localhost:11434"
-OLLAMA_MODEL       = "llama3"
+OLLAMA_MODEL       = "llama3.2"
 
 # Temperature 0 = deterministic output
 # For security analysis we want consistent,
@@ -116,20 +116,6 @@ def check_ollama_connection() -> dict:
 # ─────────────────────────────────────────
 
 def run_inference(prompt: str) -> dict:
-    """
-    Sends a prompt to Ollama and returns the response.
-    Wraps the call in error handling so pipeline never breaks.
-
-    Args:
-        prompt: fully constructed prompt string from prompt_builder
-
-    Returns:
-        {
-            "success":  True | False,
-            "response": str | None,
-            "error":    None | str
-        }
-    """
     try:
         client   = get_ollama_client()
         response = client.invoke(prompt)
@@ -141,6 +127,9 @@ def run_inference(prompt: str) -> dict:
         }
 
     except Exception as e:
+        # THIS LINE IS KEY: It will tell us exactly what went wrong
+        print(f"❌ [OLLAMA ERROR] Inference failed: {str(e)}") 
+        
         return {
             "success":  False,
             "response": None,

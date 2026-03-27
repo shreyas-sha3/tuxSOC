@@ -29,6 +29,9 @@ def analyze_incident_master(state: dict) -> dict:
     prompt = build_batch_analysis_prompt(incident)
     result = run_inference(prompt)
 
+    print(f"🔍 RAW AI OUTPUT: {result['response']}")
+
+    
     if not result["success"]:
         return {"ai_failed": True, "error": result["error"]}
 
