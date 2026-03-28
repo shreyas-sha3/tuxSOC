@@ -9,9 +9,11 @@ from typing import Union
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from ollama_client import check_ollama_connection
+from ollama_client import check_ollama_connection, run_inference
 from agent.agent_graph import build_graph
 from agent.agent_state import AgentState
+from prompt_builder import build_dora_classification_prompt
+from json_parser import parse_llm_response
 
 # ─────────────────────────────────────────
 # CONFIGURATION
@@ -102,77 +104,149 @@ def _build_initial_state(incident_data: dict) -> AgentState:
     }
 
 # ─────────────────────────────────────────
+# DORA CLASSIFICATION ENGINE
+# Article 18 (6 criteria) + Article 19 (T+4h notification)
+# ─────────────────────────────────────────
+
+def _run_dora_classification(incident_id: str, observables: dict,
+                              ai_analysis: dict, incident_data: dict) -> dict:
+    """
+    Calls the LLM with the DORA Article 18/19 prompt.
+    Returns a structured dora_report dict.
+    Falls back to a safe default if the LLM fails.
+    """
+    try:
+        prompt = build_dora_classification_prompt(
+            incident_id, observables, ai_analysis, incident_data
+        )
+        result = run_inference(prompt)
+
+        if not result["success"]:
+            raise ValueError(result["error"])
+
+        parsed = parse_llm_response(result["response"])
+        if parsed["parsed"] and isinstance(parsed["data"], dict):
+            return parsed["data"]
+
+        raise ValueError("DORA LLM response could not be parsed")
+
+    except Exception as e:
+        print(f"⚠️ DORA classification failed: {e} — returning safe default")
+        return {
+            "article_18_classification": {
+                "is_major_incident": None,
+                "criteria_triggered": [],
+                "criteria_evaluation": {},
+                "error": str(e)
+            },
+            "article_19_initial_notification": {
+                "notification_type":      "T+4h Initial Notification",
+                "regulation":             "EU DORA 2022/2554 — Article 19(1)(a)",
+                "reporting_standard":     "ITS 2025/302",
+                "incident_id":            incident_id,
+                "lei":                    "BARCLAYS-LEI-213800LBQA1Y9L22JB70",
+                "incident_timestamp":     None,
+                "classification_time":    None,
+                "affected_services":      [],
+                "initial_description":    "Classification pending — manual review required.",
+                "c1_to_c6_triggers":      [],
+                "containment_status":     "Unknown",
+                "cross_border_impact":    None,
+                "escalated_to_regulator": False,
+                "error":                  str(e)
+            }
+        }
+
+
+# ─────────────────────────────────────────
 # MAIN ENTRY POINT
 # ─────────────────────────────────────────
 
 def run_ai_analysis(incident_data: Union[dict, list]) -> dict:
     """
-    Entry point for Layer 3.
-    Handles list unwrapping, graph execution, and teammate POST.
-    Single return at the bottom — observables always present.
+    Bulletproof entry point for Layer 3.
+    Fail-Soft pattern: every failure populates a safe fallback and continues.
+    Zero early returns after Step 1 — DORA classification always runs.
+    Four pillars always present in the response:
+      incident_id | observables | ai_analysis | dora_compliance
     """
 
     # ── Step 0: Unwrap list input ─────────
     while isinstance(incident_data, list) and len(incident_data) > 0:
         incident_data = incident_data[0]
 
-    # ── Step 1: Extract observables (always, regardless of outcome) ──
+    # ── Step 1: Extract observables & ID (always — cannot fail) ──
     observables = _extract_observables(incident_data)
-
     incident_id = (
         incident_data.get("incident_id")
         or incident_data.get("event_id")
         or "UNKNOWN"
     )
 
-    # ── Step 2: Check Ollama connection ───
+    # ── Step 2: Safe fallback state (used if graph fails) ─────────
+    # Pre-populated so Steps 5–7 always have a valid dict to read from
+    final_state = {
+        "intent":              None,
+        "severity":            None,
+        "cvss_vector":         None,
+        "narrative":           None,
+        "recommended_actions": [],
+        "ai_failed":           False,
+        "ai_failure_reason":   None,
+        "validation_passed":   False,
+    }
+
+    # ── Step 3: Check Ollama — soft fail, do not return ───────────
     connection = check_ollama_connection()
-
     if not connection["connected"]:
-        return {
-            "incident_id":    incident_id,
-            "threat_summary": None,
-            "observables":    observables,
-            "ai_analysis": {
-                "intent":              None,
-                "severity":            None,
-                "cvss_vector":         None,
-                "narrative":           None,
-                "recommended_actions": [],
-                "ai_failed":           True,
-                "ai_failure_reason":   f"Ollama unreachable: {connection.get('error')}"
-            }
-        }
+        print(f"⚠️ Ollama unreachable: {connection.get('error')} — skipping graph, continuing to DORA")
+        final_state["ai_failed"]         = True
+        final_state["ai_failure_reason"] = f"Ollama unreachable: {connection.get('error')}"
+        final_state["narrative"]         = (
+            "AI forensic analysis unavailable — Ollama engine offline. "
+            "DORA classification derived from observables only."
+        )
+    else:
+        # ── Step 4: Run LangGraph — soft fail, do not return ─────
+        initial_state = _build_initial_state(incident_data)
+        try:
+            graph_result = _get_graph().invoke(initial_state)
+            # Merge graph output into final_state
+            final_state.update({k: v for k, v in graph_result.items() if v is not None})
+        except Exception as e:
+            print(f"⚠️ LangGraph crashed: {e} — using safe fallback, continuing to DORA")
+            final_state["ai_failed"]         = True
+            final_state["ai_failure_reason"] = f"LangGraph Crash: {str(e)}"
+            final_state["narrative"]         = (
+                "AI forensic analysis failed due to a graph execution error. "
+                "DORA classification derived from observables only."
+            )
 
-    # ── Step 3: Build initial state ───────
-    initial_state = _build_initial_state(incident_data)
+    # ── Step 5: Build ai_block from whatever final_state contains ─
+    ai_block = {
+        "intent":              final_state.get("intent"),
+        "severity":            final_state.get("severity"),
+        "cvss_vector":         final_state.get("cvss_vector"),
+        "narrative":           final_state.get("narrative"),
+        "recommended_actions": final_state.get("recommended_actions", []),
+        "ai_failed":           final_state.get("ai_failed", False),
+        "ai_failure_reason":   final_state.get("ai_failure_reason"),
+    }
 
-    # ── Step 4: Run the graph ─────────────
-    try:
-        final_state = graph.invoke(initial_state) if (graph := _get_graph()) else {}
-    except Exception as e:
-        return {
-            "incident_id":    incident_id,
-            "threat_summary": None,
-            "observables":    observables,
-            "ai_analysis": {
-                "intent":              None,
-                "severity":            None,
-                "cvss_vector":         None,
-                "narrative":           None,
-                "recommended_actions": [],
-                "ai_failed":           True,
-                "ai_failure_reason":   f"LangGraph Crash: {str(e)}"
-            }
-        }
+    # ── Step 6: DORA Classification — always runs, always returns ─
+    print("📋 Running DORA Article 18/19 Classification...")
+    dora_report = _run_dora_classification(
+        incident_id, observables, ai_block, incident_data
+    )
 
-    # ── Step 5: Push to CVSS teammate ─────
+    # ── Step 7: Push to CVSS teammate (best-effort, non-blocking) ─
     if not final_state.get("ai_failed") and final_state.get("validation_passed"):
         scoring_payload = {
             "incident_id":    incident_id,
             "threat_summary": final_state.get("narrative"),
             "cvss":           final_state.get("cvss_vector"),
             "observables":    observables,
+            "dora_report":    dora_report,
             "metadata": {
                 "intent":              final_state.get("intent"),
                 "severity":            final_state.get("severity"),
@@ -190,17 +264,11 @@ def run_ai_analysis(incident_data: Union[dict, list]) -> dict:
         except Exception as e:
             print(f"⚠️ Could not reach teammate's Scoring Layer: {e}")
 
-    # ── Step 6: Single final return ───────
+    # ── Step 8: Single guaranteed return — four pillars always present ──
     return {
-        "incident_id":    incident_id,
-        "threat_summary": final_state.get("narrative"),
-        "observables":    observables,
-        "ai_analysis": {
-            "intent":              final_state.get("intent"),
-            "severity":            final_state.get("severity"),
-            "cvss_vector":         final_state.get("cvss_vector"),
-            "narrative":           final_state.get("narrative"),
-            "recommended_actions": final_state.get("recommended_actions", []),
-            "ai_failed":           final_state.get("ai_failed", False)
-        }
+        "incident_id":     incident_id,
+        "threat_summary":  final_state.get("narrative"),
+        "observables":     observables,
+        "ai_analysis":     ai_block,
+        "dora_compliance": dora_report,
     }

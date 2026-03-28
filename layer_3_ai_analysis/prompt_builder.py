@@ -92,6 +92,126 @@ EXAMPLE E — TRUE POSITIVE (Exfiltration to Blacklisted IP):
 """
 
 
+DORA_SYSTEM_CONTEXT = """You are a DORA Compliance Officer at Barclays, operating under EU Regulation 2022/2554
+(Digital Operational Resilience Act) and ITS 2025/302.
+
+Your task is to evaluate a cyber incident against the 6 European classification criteria
+(Article 18) and produce a T+4h Initial Notification (Article 19).
+
+### ARTICLE 18 — CLASSIFICATION CRITERIA (evaluate ALL six):
+
+C1 — CLIENTS AFFECTED:
+  - TRIGGERED if the incident affects client-facing services, payment systems, or
+    authenticated user sessions.
+  - NOT triggered for purely internal infrastructure with no client exposure.
+
+C2 — DURATION:
+  - TRIGGERED if the incident has been active for more than 30 minutes OR if the
+    attack_timeline shows multiple correlated events spanning more than 15 minutes.
+  - NOT triggered for single-event anomalies with no persistence indicators.
+
+C3 — DATA LOSS:
+  - TRIGGERED if the action field contains "exfil", "exfiltration", "data loss",
+    "transfer", or "flood" AND the destination is external (non-RFC-1918).
+  - NOT triggered for internal transfers or authorized backups.
+
+C4 — CRITICALITY OF SERVICES:
+  - TRIGGERED if the affected_host or destination is in a sensitive subnet (10.50.x.x,
+    core banking range), or if the MITRE tactic is "Credential Access", "Exfiltration",
+    or "Impact".
+  - NOT triggered for development or test environments.
+
+C5 — FINANCIAL LOSS:
+  - TRIGGERED if the incident involves payment systems, SWIFT infrastructure, or
+    accounts with "finance", "treasury", or "payment" in the user/host name.
+  - NOT triggered for general IT infrastructure incidents.
+
+C6 — GEOGRAPHICAL SPREAD:
+  - TRIGGERED if the source_ip or destination_ip is external (non-RFC-1918), indicating
+    cross-border data movement or an external threat actor.
+  - NOT triggered for purely internal lateral movement.
+
+### ARTICLE 19 — T+4H INITIAL NOTIFICATION SCHEMA:
+Produce the Initial Notification that Barclays must submit to the FCA within 4 hours
+of classifying the incident as "major" (2+ criteria triggered).
+
+### ARTICLE 20 — OUTPUT RULES (MANDATORY):
+- Respond in PURE JSON only. No preamble, no explanation, no markdown.
+- Start with '{' and end with '}'.
+- Every field must be present. Use null for unknown values, false for untriggered criteria.
+"""
+
+
+def build_dora_classification_prompt(incident_id: str, observables: dict,
+                                      ai_analysis: dict, incident_data: dict) -> str:
+    """
+    Builds the Article 18 classification + Article 19 T+4h notification prompt.
+    Grounds the classification in code-extracted observables (not AI inference).
+    """
+    # Extract timeline for duration assessment
+    timeline = (
+        incident_data.get("engine_3_correlation", {}).get("attack_timeline", [])
+        or incident_data.get("correlation_hints", {})
+    )
+
+    context = {
+        "incident_id":     incident_id,
+        "source_ip":       observables.get("source_ip"),
+        "destination_ip":  observables.get("destination_ip"),
+        "port":            observables.get("port"),
+        "protocol":        observables.get("protocol"),
+        "affected_host":   observables.get("affected_host"),
+        "affected_user":   observables.get("affected_user"),
+        "action":          observables.get("action"),
+        "mitre_technique": observables.get("mitre_technique"),
+        "mitre_tactic":    observables.get("mitre_tactic"),
+        "anomaly_score":   observables.get("anomaly_score"),
+        "ueba_flags":      observables.get("ueba_flags", []),
+        "ai_intent":       ai_analysis.get("intent"),
+        "ai_severity":     ai_analysis.get("severity"),
+        "ai_narrative":    ai_analysis.get("narrative"),
+        "attack_timeline": timeline,
+    }
+
+    context_json = json.dumps(context, indent=2)
+
+    return f"""{DORA_SYSTEM_CONTEXT}
+
+### INCIDENT CONTEXT (grounded in technical observables):
+{context_json}
+
+### REQUIRED OUTPUT — JSON ONLY, exactly this structure (ITS 2025/302):
+{{
+    "article_18_classification": {{
+        "is_major_incident": true or false,
+        "criteria_triggered": ["C1", "C3", "C4"],
+        "criteria_evaluation": {{
+            "C1_clients_affected":      {{ "triggered": true or false, "rationale": "one sentence" }},
+            "C2_duration":              {{ "triggered": true or false, "rationale": "one sentence" }},
+            "C3_data_loss":             {{ "triggered": true or false, "rationale": "one sentence" }},
+            "C4_criticality":           {{ "triggered": true or false, "rationale": "one sentence" }},
+            "C5_financial_loss":        {{ "triggered": true or false, "rationale": "one sentence" }},
+            "C6_geographical_spread":   {{ "triggered": true or false, "rationale": "one sentence" }}
+        }}
+    }},
+    "article_19_initial_notification": {{
+        "notification_type":    "T+4h Initial Notification",
+        "regulation":           "EU DORA 2022/2554 — Article 19(1)(a)",
+        "reporting_standard":   "ITS 2025/302",
+        "incident_id":          "{incident_id}",
+        "lei":                  "BARCLAYS-LEI-213800LBQA1Y9L22JB70",
+        "incident_timestamp":   null,
+        "classification_time":  null,
+        "affected_services":    ["describe based on host/protocol/action"],
+        "initial_description":  "2-sentence factual description for the regulator",
+        "c1_to_c6_triggers":    ["list only the triggered criteria codes"],
+        "containment_status":   "In Progress | Contained | Unknown",
+        "cross_border_impact":  true or false,
+        "escalated_to_regulator": true or false
+    }}
+}}"""
+
+
 def build_batch_analysis_prompt(batch_data: dict) -> str:
     """
     Builds the lean prompt for the new mitre_attack schema.
