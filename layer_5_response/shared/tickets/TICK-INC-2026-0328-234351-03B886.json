@@ -1,0 +1,83 @@
+{
+  "ticket_id": "TICK-INC-2026-0328-234351-03B886",
+  "timestamp": "2026-03-29T05:14:25.171993",
+  "event_id": "INC-2026-0328-234351-03B886",
+  "severity": "CRITICAL",
+  "base_score": 9.8,
+  "attacker_ip": "135.14.5.9",
+  "affected_entity": "Unknown",
+  "intent": "WEB.XSS",
+  "status": "RESOLVED",
+  "actions_taken": [
+    {
+      "action": "firewall_block",
+      "target_ip": "135.14.5.9",
+      "status": "SUCCESS",
+      "timestamp": 1774741464.6709862
+    },
+    {
+      "action": "soc_alert",
+      "event_id": "INC-2026-0328-234351-03B886",
+      "severity": "CRITICAL",
+      "status": "SENT",
+      "timestamp": 1774741465.1716578
+    }
+  ],
+  "recommendations": [
+    "\ud83d\udea8 Isolate affected systems immediately",
+    "\ud83d\udcde Initiate emergency incident response procedure",
+    "\ud83d\udc65 Notify senior management and legal team",
+    "\ud83d\udd0d Preserve all logs and volatile memory for forensics",
+    "\ud83d\udd0d Conduct thorough log analysis",
+    "\ud83d\udcca Correlate with threat intelligence feeds",
+    "\ud83d\udee1\ufe0f Review relevant security control effectiveness"
+  ],
+  "playbook_path": "/home/art3mi5/Documents/Github/TuxSOC/layer_5_response/shared/playbooks/PLAY-INC-2026-0328-234351-03B886.md",
+  "dora_compliance": {
+    "article_18_classification": {
+      "is_major_incident": true,
+      "criteria_triggered": [
+        "C1",
+        "C3",
+        "C4"
+      ],
+      "criteria_evaluation": {
+        "C1_clients_affected": {
+          "triggered": true,
+          "rationale": "The incident affected multiple clients, as indicated by the high anomaly score and the presence of XSS flags."
+        },
+        "C2_duration": {
+          "triggered": false,
+          "rationale": "The duration of the incident is not specified in the provided context."
+        },
+        "C3_data_loss": {
+          "triggered": true,
+          "rationale": "There is evidence of data loss, as indicated by the critical severity and XSS flags."
+        },
+        "C4_criticality": {
+          "triggered": true,
+          "rationale": "The incident has a high level of criticality, as indicated by the critical severity."
+        },
+        "C5_financial_loss": {
+          "triggered": false,
+          "rationale": "There is no information available to determine if financial loss occurred."
+        },
+        "C6_geographical_spread": {
+          "triggered": true,
+          "rationale": "The incident appears to have spread geographically, as indicated by the source IP address."
+        }
+      }
+    },
+    "article_19_initial_notification": {
+      "notification_type": "T+4h Initial Notification",
+      "incident_id": "INC-2026-0328-234351-03B886",
+      "lei": "BARCLAYS-LEI-213800LBQA1Y9L22JB70",
+      "affected_services": [
+        "Web Services"
+      ],
+      "initial_description": "A critical web-based attack was detected, involving an XSS pattern and affecting multiple clients.",
+      "containment_status": "In Progress"
+    }
+  },
+  "regulatory_flag": "REGULATORY_ESCALATION_REQUIRED"
+}

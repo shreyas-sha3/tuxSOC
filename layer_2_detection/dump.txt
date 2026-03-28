@@ -1,0 +1,1907 @@
+===== ./engine_1_anomaly/anomaly_orchestrator.py =====
+# anomaly_orchestrator.py
+# Location: layer_2_detection/engine_1_anomaly/anomaly_orchestrator.py
+# ─────────────────────────────────────────────────────────────────
+# Orchestrates UEBA scoring + PyOD anomaly scoring into a single
+# engine_1_anomaly result block.
+# ─────────────────────────────────────────────────────────────────
+
+from __future__ import annotations
+from typing import Optional
+from elasticsearch import Elasticsearch
+
+from layer_2_detection.engine_1_anomaly.pyod_detector import compute_anomaly_score
+from layer_2_detection.engine_1_anomaly.ueba_scorer import run_ueba
+
+
+def build_anomaly_block(
+    rule_id: str,
+    es: Optional[Elasticsearch] = None,
+    user: Optional[str] = None,
+    current_country: Optional[str] = None,
+    current_hour: Optional[int] = None,
+    extra_ueba_flags: Optional[list[str]] = None,
+    auth_index: str = "logs-auth",
+) -> dict:
+    """
+    Full Engine 1 pipeline:
+      1. Run UEBA against ES (impossible-travel + temporal)
+      2. Merge with any rule-level flags (e.g. "dns_tunneling_pattern")
+      3. Compute PyOD-compatible anomaly score
+
+    Returns the complete `engine_1_anomaly` dict.
+    """
+    ueba_flags: list[str] = []
+
+    # Run live UEBA if we have an ES connection & a user identity
+    if es is not None and user:
+        ueba_flags = run_ueba(
+            es, user,
+            current_country=current_country,
+            current_hour=current_hour,
+            auth_index=auth_index,
+        )
+
+    # Merge rule-level flags
+    if extra_ueba_flags:
+        for f in extra_ueba_flags:
+            if f not in ueba_flags:
+                ueba_flags.append(f)
+
+    return compute_anomaly_score(rule_id, ueba_flags)
+===== ./engine_1_anomaly/pyod_detector.py =====
+# pyod_detector.py
+# Location: layer_2_detection/engine_1_anomaly/pyod_detector.py
+# ─────────────────────────────────────────────────────────────────
+# Lightweight anomaly scoring shim.
+#
+# In production you would run a trained PyOD IsolationForest / LOF
+# model against feature vectors. For the Layer 2 ES-backed pipeline
+# we derive a heuristic `pyod_score` from the ES-side detection
+# metadata (rule severity, event count, UEBA flags) so the
+# downstream schema stays identical to what Layer 3 expects.
+# ─────────────────────────────────────────────────────────────────
+
+from __future__ import annotations
+
+# ── Severity → Base Score mapping ────────────────────────────────
+_RULE_SEVERITY: dict[str, float] = {
+    # Web
+    "WEB_SQLI":        0.92,
+    "WEB_CMDI":        0.94,
+    "WEB_LFI":         0.85,
+    "WEB_XSS":         0.78,
+    "WEB_SCANNER":     0.60,
+    "WEB_SSRF":        0.88,
+    # Auth
+    "AUTH_BRUTEFORCE":  0.90,
+    "AUTH_SPRAY":       0.88,
+    "AUTH_MFA_FATIGUE": 0.85,
+    "AUTH_PRIV_ABUSE":  0.82,
+    # Endpoint
+    "EP_RANSOMWARE":    0.99,
+    "EP_LOLBIN":        0.88,
+    "EP_CREDENTIAL_DUMP": 0.95,
+    "EP_DEF_EVASION":   0.93,
+    "EP_PERSISTENCE":   0.80,
+    # Network
+    "NET_PORTSCAN":     0.75,
+    "NET_C2_BEACON":    0.90,
+    "NET_DNS_TUNNEL":   0.92,
+    "NET_EXFIL":        0.93,
+    "NET_LATERAL":      0.85,
+}
+
+
+def compute_anomaly_score(
+    rule_id: str,
+    ueba_flags: list[str] | None = None,
+) -> dict:
+    """
+    Produces the `engine_1_anomaly` block used by the Layer 3 schema.
+
+    Returns
+    -------
+    dict
+        {
+            "pyod_score":      float,   # 0.0 – 1.0
+            "is_outlier":      bool,
+            "ueba_flags":      [...],
+            "anomaly_score":   float,
+            "anomaly_flagged": bool,
+        }
+    """
+    base = _RULE_SEVERITY.get(rule_id, 0.70)
+    flags = ueba_flags or []
+
+    # Boost by 0.03 per UEBA flag (capped at 1.0)
+    boosted = min(base + 0.03 * len(flags), 1.0)
+
+    return {
+        "pyod_score":      round(boosted, 4),
+        "is_outlier":      boosted >= 0.70,
+        "ueba_flags":      flags,
+        "anomaly_score":   round(boosted, 4),
+        "anomaly_flagged": boosted >= 0.60,
+    }
+===== ./engine_1_anomaly/ueba_scorer.py =====
+# ueba_scorer.py
+# Location: layer_2_detection/engine_1_anomaly/ueba_scorer.py
+# ─────────────────────────────────────────────────────────────────
+# User & Entity Behaviour Analytics (UEBA) backed by ES aggregations.
+#
+# Two detections:
+#   1. Impossible Travel  – compares current login country against
+#      the user's 30-day country baseline from ES.
+#   2. Temporal Anomaly   – compares current login hour against the
+#      user's historical hour-of-day distribution from ES.
+# ─────────────────────────────────────────────────────────────────
+
+from __future__ import annotations
+from typing import Optional
+from elasticsearch import Elasticsearch
+
+
+def detect_impossible_travel(
+    es: Elasticsearch,
+    user: str,
+    current_country: Optional[str],
+    auth_index: str = "logs-auth",
+) -> bool:
+    """
+    Returns True if `current_country` has never appeared in the user's
+    last-30-day login history stored in ES.
+    """
+    if not current_country or not user:
+        return False
+
+    try:
+        resp = es.search(
+            index=auth_index,
+            body={
+                "size": 0,
+                "query": {
+                    "bool": {
+                        "filter": [
+                            {"term": {"raw_event.affected_user.keyword": user}},
+                            {"range": {"@timestamp": {"gte": "now-30d"}}},
+                        ]
+                    }
+                },
+                "aggs": {
+                    "countries": {
+                        "terms": {
+                            "field": "geoip.country_name.keyword",
+                            "size": 50,
+                        }
+                    }
+                },
+            },
+            request_timeout=5,
+        )
+        known_countries = {
+            b["key"] for b in resp["aggregations"]["countries"]["buckets"]
+        }
+        return current_country not in known_countries
+
+    except Exception as e:
+        print(f"⚠️ [UEBA] Impossible-travel query failed: {e}")
+        return False
+
+
+def detect_temporal_anomaly(
+    es: Elasticsearch,
+    user: str,
+    current_hour: int,
+    auth_index: str = "logs-auth",
+) -> bool:
+    """
+    Returns True if `current_hour` falls outside the user's typical
+    login-hour range (below 5th or above 95th percentile bucket) over
+    the last 90 days.
+    """
+    if not user:
+        return False
+
+    try:
+        resp = es.search(
+            index=auth_index,
+            body={
+                "size": 0,
+                "query": {
+                    "bool": {
+                        "filter": [
+                            {"term": {"raw_event.affected_user.keyword": user}},
+                            {"range": {"@timestamp": {"gte": "now-90d"}}},
+                        ]
+                    }
+                },
+                "aggs": {
+                    "login_hours": {
+                        "histogram": {
+                            "field": "hour_of_day",
+                            "interval": 1,
+                            "min_doc_count": 0,
+                        }
+                    }
+                },
+            },
+            request_timeout=5,
+        )
+        buckets = resp["aggregations"]["login_hours"]["buckets"]
+        total = sum(b["doc_count"] for b in buckets)
+        if total == 0:
+            return True  # No history at all → flag as unusual
+
+        # Identify hours that cover < 5% of total logins (rare hours)
+        threshold = total * 0.05
+        rare_hours = {int(b["key"]) for b in buckets if b["doc_count"] < threshold}
+
+        return current_hour in rare_hours
+
+    except Exception as e:
+        print(f"⚠️ [UEBA] Temporal-anomaly query failed: {e}")
+        return False
+
+
+def run_ueba(
+    es: Elasticsearch,
+    user: str,
+    current_country: Optional[str] = None,
+    current_hour: Optional[int] = None,
+    auth_index: str = "logs-auth",
+) -> list[str]:
+    """
+    Master UEBA entry-point. Returns a list of triggered UEBA flags:
+      ["impossible_travel", "off_hours_activity"]
+    """
+    flags: list[str] = []
+
+    if detect_impossible_travel(es, user, current_country, auth_index):
+        flags.append("impossible_travel")
+
+    if current_hour is not None and detect_temporal_anomaly(es, user, current_hour, auth_index):
+        flags.append("off_hours_activity")
+
+    return flags
+===== ./engine_2_threat_intel/intel_orchestrator.py =====
+# intel_orchestrator.py
+# Location: layer_2_detection/engine_2_threat_intel/intel_orchestrator.py
+# ─────────────────────────────────────────────────────────────────
+# Thin orchestration wrapper. Given a raw ES hit, runs IOC matching
+# and MITRE mapping, returning the full engine_2_threat_intel block.
+# ─────────────────────────────────────────────────────────────────
+
+from __future__ import annotations
+from typing import Optional
+from elasticsearch import Elasticsearch
+
+from layer_2_detection.engine_2_threat_intel.ioc_matcher import match_iocs
+from layer_2_detection.engine_2_threat_intel.mitre_mapper import get_mitre_mapping
+
+
+def enrich_threat_intel(
+    raw_event: dict,
+    rule_id: str,
+    es_client: Optional[Elasticsearch] = None,
+) -> dict:
+    """
+    Produces the `engine_2_threat_intel` block for a single event.
+
+    Parameters
+    ----------
+    raw_event : dict
+        The normalised raw_event dict (source_ip, destination_ip, …).
+    rule_id : str
+        The detection rule that fired (e.g. "WEB_SQLI", "AUTH_BRUTEFORCE").
+    es_client : Elasticsearch, optional
+        Live ES client for IOC feed look-ups.
+
+    Returns
+    -------
+    dict
+        A dict matching the Layer 3 contract:
+        {
+            "ioc_matches": [...],
+            "threat_intel_match": bool,
+            "mitre_tactic": str,
+            "mitre_technique": str,
+            "mitre_technique_name": str,
+        }
+    """
+    # IOC enrichment
+    ioc_result = match_iocs(
+        source_ip=raw_event.get("source_ip"),
+        destination_ip=raw_event.get("destination_ip"),
+        es_client=es_client,
+    )
+
+    # MITRE mapping
+    mitre = get_mitre_mapping(rule_id)
+
+    return {
+        **ioc_result,
+        **mitre,
+    }
+===== ./engine_2_threat_intel/ioc_matcher.py =====
+# ioc_matcher.py
+# Location: layer_2_detection/engine_2_threat_intel/ioc_matcher.py
+# ─────────────────────────────────────────────────────────────────
+# Lightweight IOC enrichment. Checks source/destination IPs and
+# domains against known blacklists and threat feeds stored in ES.
+# If ES-based feeds are unavailable, falls back to a static seed
+# list for demo / offline operation.
+# ─────────────────────────────────────────────────────────────────
+
+from __future__ import annotations
+from typing import Optional
+from elasticsearch import Elasticsearch
+
+# ── Static Fallback Seed List ─────────────────────────────────────
+# Used when ES threat-intel index is not yet populated.
+_STATIC_BLACKLIST_IPS: set[str] = {
+    "194.5.6.7",
+    "185.192.69.5",
+    "45.33.22.11",
+    "203.0.113.50",
+    "114.114.114.114",
+    "45.45.45.45",
+}
+
+_STATIC_MALWARE_HASHES: set[str] = set()
+
+_STATIC_MALICIOUS_DOMAINS: set[str] = {
+    "evil-c2.example.com",
+    "update.malware.biz",
+}
+
+
+def match_iocs(
+    source_ip: Optional[str] = None,
+    destination_ip: Optional[str] = None,
+    domain: Optional[str] = None,
+    file_hash: Optional[str] = None,
+    es_client: Optional[Elasticsearch] = None,
+) -> dict:
+    """
+    Checks the provided observables against threat intelligence.
+    Returns:
+      {
+        "ioc_matches":       ["blacklist_hit_X", ...],
+        "threat_intel_match": True/False
+      }
+    """
+    matches: list[str] = []
+
+    # ── 1. Try ES-based threat feed first ─────────────────────
+    if es_client is not None:
+        try:
+            for ip in filter(None, [source_ip, destination_ip]):
+                resp = es_client.search(
+                    index="threat-intel-iocs",
+                    body={
+                        "size": 1,
+                        "query": {"term": {"indicator.ip": ip}},
+                    },
+                    request_timeout=3,
+                )
+                if resp["hits"]["total"]["value"] > 0:
+                    matches.append(f"threat_feed_hit_{ip}")
+        except Exception:
+            pass  # Fall through to static list
+
+    # ── 2. Static blacklist fallback ──────────────────────────
+    for ip in filter(None, [source_ip, destination_ip]):
+        if ip in _STATIC_BLACKLIST_IPS:
+            tag = f"blacklist_hit_{ip}"
+            if tag not in matches:
+                matches.append(tag)
+
+    if domain and domain in _STATIC_MALICIOUS_DOMAINS:
+        matches.append(f"malicious_domain_{domain}")
+
+    if file_hash and file_hash in _STATIC_MALWARE_HASHES:
+        matches.append(f"malware_hash_{file_hash}")
+
+    return {
+        "ioc_matches":       matches,
+        "threat_intel_match": len(matches) > 0,
+    }
+===== ./engine_2_threat_intel/mitre_mapper.py =====
+# mitre_mapper.py
+# Location: layer_2_detection/engine_2_threat_intel/mitre_mapper.py
+# ─────────────────────────────────────────────────────────────────
+# Maps rule IDs from the Rules Engine to their MITRE ATT&CK
+# Tactic / Technique / Technique Name for downstream enrichment.
+# ─────────────────────────────────────────────────────────────────
+
+MITRE_MAP: dict[str, dict] = {
+    # ── Web Attacks ──────────────────────────────────────────
+    "WEB_SQLI":        {"tactic": "Initial Access",      "technique": "T1190",      "name": "Exploit Public-Facing Application"},
+    "WEB_CMDI":        {"tactic": "Execution",            "technique": "T1059",      "name": "Command and Scripting Interpreter"},
+    "WEB_LFI":         {"tactic": "Initial Access",      "technique": "T1190",      "name": "Exploit Public-Facing Application"},
+    "WEB_XSS":         {"tactic": "Initial Access",      "technique": "T1189",      "name": "Drive-by Compromise"},
+    "WEB_SCANNER":     {"tactic": "Reconnaissance",      "technique": "T1595.002",  "name": "Vulnerability Scanning"},
+    "WEB_SSRF":        {"tactic": "Initial Access",      "technique": "T1190",      "name": "Exploit Public-Facing Application"},
+
+    # ── Auth Attacks ─────────────────────────────────────────
+    "AUTH_BRUTEFORCE":     {"tactic": "Credential Access",   "technique": "T1110",      "name": "Brute Force"},
+    "AUTH_SPRAY":          {"tactic": "Credential Access",   "technique": "T1110.003",  "name": "Password Spraying"},
+    "AUTH_MFA_FATIGUE":    {"tactic": "Credential Access",   "technique": "T1621",      "name": "Multi-Factor Authentication Request Generation"},
+    "AUTH_PRIV_ABUSE":     {"tactic": "Privilege Escalation","technique": "T1078",      "name": "Valid Accounts"},
+
+    # ── Endpoint Attacks ─────────────────────────────────────
+    "EP_RANSOMWARE":       {"tactic": "Impact",             "technique": "T1486",      "name": "Data Encrypted for Impact"},
+    "EP_LOLBIN":           {"tactic": "Execution",          "technique": "T1059.001",  "name": "PowerShell"},
+    "EP_CREDENTIAL_DUMP":  {"tactic": "Credential Access",  "technique": "T1003",      "name": "OS Credential Dumping"},
+    "EP_DEF_EVASION":      {"tactic": "Defense Evasion",    "technique": "T1070.001",  "name": "Clear Windows Event Logs"},
+    "EP_PERSISTENCE":      {"tactic": "Persistence",        "technique": "T1547.001",  "name": "Registry Run Keys / Startup Folder"},
+
+    # ── Network Attacks ──────────────────────────────────────
+    "NET_PORTSCAN":        {"tactic": "Discovery",          "technique": "T1046",      "name": "Network Service Discovery"},
+    "NET_C2_BEACON":       {"tactic": "Command and Control","technique": "T1071.001",  "name": "Web Protocols"},
+    "NET_DNS_TUNNEL":      {"tactic": "Command and Control","technique": "T1071.004",  "name": "DNS"},
+    "NET_EXFIL":           {"tactic": "Exfiltration",       "technique": "T1048",      "name": "Exfiltration Over Alternative Protocol"},
+    "NET_LATERAL":         {"tactic": "Lateral Movement",   "technique": "T1021",      "name": "Remote Services"},
+}
+
+
+def get_mitre_mapping(rule_id: str) -> dict:
+    """
+    Returns the MITRE ATT\u0026CK enrichment dict for a given rule_id.
+    Falls back to 'Unknown' if the rule is not in the map.
+    """
+    mapping = MITRE_MAP.get(rule_id)
+    if mapping:
+        return {
+            "mitre_tactic":         mapping["tactic"],
+            "mitre_technique":      mapping["technique"],
+            "mitre_technique_name": mapping["name"],
+        }
+    return {
+        "mitre_tactic":         "Unknown",
+        "mitre_technique":      "Unknown",
+        "mitre_technique_name": "Unknown",
+    }
+===== ./engine_3_correlation/correlation_orchestrator.py =====
+# correlation_orchestrator.py
+# Location: layer_2_detection/engine_3_correlation/correlation_orchestrator.py
+# ─────────────────────────────────────────────────────────────────
+# Orchestrates the full correlation + timeline pipeline for a
+# single detection alert, producing the engine_3_correlation block.
+# ─────────────────────────────────────────────────────────────────
+
+from __future__ import annotations
+from elasticsearch import Elasticsearch
+
+from layer_2_detection.engine_3_correlation.event_linker import correlate_events
+from layer_2_detection.engine_3_correlation.timeline_builder import build_attack_timeline
+
+
+def build_correlation_block(
+    es: Elasticsearch,
+    pivot_ip: str | None = None,
+    pivot_user: str | None = None,
+) -> dict:
+    """
+    Full Engine 3 pipeline:
+      1. Run Time-Machine correlation query
+      2. Build attack timeline
+
+    Returns the `engine_3_correlation` dict:
+      {
+        "event_count": int,
+        "attack_timeline": [...]
+      }
+    """
+    correlated = correlate_events(es, pivot_ip=pivot_ip, pivot_user=pivot_user)
+    timeline = build_attack_timeline(correlated)
+
+    return {
+        "event_count":    len(correlated),
+        "attack_timeline": timeline,
+    }
+===== ./engine_3_correlation/event_linker.py =====
+# event_linker.py
+# Location: layer_2_detection/engine_3_correlation/event_linker.py
+# ─────────────────────────────────────────────────────────────────
+# The ES "Time-Machine" correlator.
+#
+# When a detection fires for a pivot_ip or pivot_user, this module
+# queries ALL indices (logs-*) for related events within a ±5-min
+# window, building a correlated event cluster.
+# ─────────────────────────────────────────────────────────────────
+
+from __future__ import annotations
+from elasticsearch import Elasticsearch
+
+
+def correlate_events(
+    es: Elasticsearch,
+    pivot_ip: str | None = None,
+    pivot_user: str | None = None,
+    time_range: str = "now-5m",
+    max_events: int = 200,
+) -> list[dict]:
+    """
+    The ES Time-Machine Query.
+
+    Given a pivot IP and/or user, pull all related logs from ALL
+    indices across the last 5 minutes.
+
+    Returns raw ES source dicts sorted by timestamp.
+    """
+    if not pivot_ip and not pivot_user:
+        return []
+
+    should_clauses: list[dict] = []
+    if pivot_ip:
+        should_clauses.extend([
+            {"term": {"source.ip": pivot_ip}},
+            {"term": {"destination.ip": pivot_ip}},
+            {"term": {"raw_event.source_ip.keyword": pivot_ip}},
+            {"term": {"raw_event.destination_ip.keyword": pivot_ip}},
+        ])
+    if pivot_user:
+        should_clauses.extend([
+            {"term": {"raw_event.affected_user.keyword": pivot_user}},
+            {"term": {"user.name.keyword": pivot_user}},
+        ])
+
+    body = {
+        "size": max_events,
+        "sort": [{"@timestamp": {"order": "asc"}}],
+        "query": {
+            "bool": {
+                "filter": [
+                    {"range": {"@timestamp": {"gte": time_range, "lte": "now"}}},
+                ],
+                "should": should_clauses,
+                "minimum_should_match": 1,
+            }
+        },
+    }
+
+    try:
+        resp = es.search(index="logs-*", body=body, request_timeout=10)
+        return [hit["_source"] for hit in resp["hits"]["hits"]]
+    except Exception as e:
+        print(f"⚠️ [Correlator] Time-machine query failed: {e}")
+        return []
+===== ./engine_3_correlation/timeline_builder.py =====
+# timeline_builder.py
+# Location: layer_2_detection/engine_3_correlation/timeline_builder.py
+# ─────────────────────────────────────────────────────────────────
+# Takes the raw correlated events from event_linker and produces
+# the attack_timeline array required by Layer 3's JSON schema.
+# ─────────────────────────────────────────────────────────────────
+
+from __future__ import annotations
+
+
+def build_attack_timeline(correlated_events: list[dict]) -> list[dict]:
+    """
+    Converts raw ES docs into the attack_timeline format:
+      [
+        {"timestamp": "...", "event": "...", "detail": "..."},
+        ...
+      ]
+    """
+    timeline: list[dict] = []
+
+    for evt in correlated_events:
+        raw = evt.get("raw_event", evt)
+        ts = (
+            raw.get("timestamp")
+            or evt.get("@timestamp")
+            or evt.get("timestamp")
+            or ""
+        )
+        action = raw.get("action") or evt.get("event", {}).get("action", "unknown_event")
+        detail = _build_detail(evt)
+
+        timeline.append({
+            "timestamp": ts,
+            "event":     _classify_event(evt),
+            "detail":    detail,
+        })
+
+    return timeline
+
+
+def _classify_event(evt: dict) -> str:
+    """Derive a short event classification from the ES doc."""
+    outcome = evt.get("event", {}).get("outcome", "")
+    category = evt.get("event", {}).get("category", "")
+    log_type = evt.get("log_type", "")
+
+    if outcome == "failure" and category == "authentication":
+        return "auth_failure"
+    if outcome == "success" and category == "authentication":
+        return "auth_success"
+    if log_type == "network" or "network" in category:
+        return "network_connection"
+    if log_type == "endpoint" or "process" in category:
+        return "endpoint_activity"
+    if log_type == "web":
+        return "web_attack"
+    return "generic_event"
+
+
+def _build_detail(evt: dict) -> str:
+    """Build a human-readable detail string."""
+    raw = evt.get("raw_event", evt)
+    action = raw.get("action", "")
+    src = raw.get("source_ip") or evt.get("source", {}).get("ip", "")
+    dst = raw.get("destination_ip") or evt.get("destination", {}).get("ip", "")
+    user = raw.get("affected_user") or evt.get("user", {}).get("name", "")
+
+    parts: list[str] = []
+    if action:
+        parts.append(action)
+    if src and dst:
+        parts.append(f"({src} → {dst})")
+    elif src:
+        parts.append(f"(from {src})")
+    if user:
+        parts.append(f"[user: {user}]")
+
+    return " ".join(parts) if parts else "Correlated event"
+===== ./detection_orchestrator.py =====
+# detection_orchestrator.py
+# Location: layer_2_detection/detection_orchestrator.py
+# ═════════════════════════════════════════════════════════════════
+# Layer 2: Detection & Correlation Engine — Master Orchestrator
+#
+# A stateless FastAPI microservice backed entirely by Elasticsearch.
+# Continuously polls ES indices for attack signatures, runs UEBA
+# behavioral analytics, correlates related events, and dispatches
+# enriched incident payloads to Layer 3 (AI Analysis).
+#
+# Architecture:
+#   ┌──────────────────────────────────────────────────────┐
+#   │                  Detection Orchestrator              │
+#   │                   (FastAPI @ :8002)                   │
+#   │                                                      │
+#   │  ┌────────────┐ ┌────────────┐ ┌──────────────────┐  │
+#   │  │ Rules Eng. │ │ Anomaly    │ │ Threat Intel     │  │
+#   │  │ (20 rules) │ │ UEBA+PyOD │ │ IOC+MITRE       │  │
+#   │  └─────┬──────┘ └─────┬──────┘ └───────┬──────────┘  │
+#   │        │              │                │             │
+#   │        └──────┬───────┘                │             │
+#   │               ▼                        │             │
+#   │  ┌──────────────────────┐              │             │
+#   │  │ Correlation Engine   │◀─────────────┘             │
+#   │  │ (5-min time-machine) │                            │
+#   │  └──────────┬───────────┘                            │
+#   │             ▼                                        │
+#   │  ┌──────────────────────┐                            │
+#   │  │ Dispatcher           │─────► Layer 3 @ :8001      │
+#   │  │ (JSON packaging)     │                            │
+#   │  └──────────────────────┘                            │
+#   └──────────────────────────────────────────────────────┘
+# ═════════════════════════════════════════════════════════════════
+
+from __future__ import annotations
+
+import os
+import sys
+import uuid
+import asyncio
+import requests
+from datetime import datetime, timezone
+from contextlib import asynccontextmanager
+from typing import Optional
+
+from fastapi import FastAPI, HTTPException
+from elasticsearch import Elasticsearch
+
+# ── Internal Engine Imports ───────────────────────────────────
+from layer_2_detection.rules_engine import run_all_rules
+from layer_2_detection.engine_1_anomaly.anomaly_orchestrator import build_anomaly_block
+from layer_2_detection.engine_2_threat_intel.intel_orchestrator import enrich_threat_intel
+from layer_2_detection.engine_3_correlation.correlation_orchestrator import build_correlation_block
+
+
+# ═════════════════════════════════════════════════════════════════
+# CONFIGURATION
+# ═════════════════════════════════════════════════════════════════
+
+ES_HOST = os.getenv("ES_HOST", "http://localhost:9200")
+ES_USER = os.getenv("ES_USER", "elastic")
+ES_PASS = os.getenv("ES_PASSWORD", "changeme")
+ES_API_KEY = os.getenv("ES_API_KEY", None)
+
+LAYER_3_URL = os.getenv("LAYER_3_URL", "http://localhost:8001/analyze")
+POLL_INTERVAL_SECONDS = int(os.getenv("POLL_INTERVAL", "30"))
+
+# ── Deduplication window (in-memory, stateless per process restart)
+_seen_detection_keys: set[str] = set()
+_MAX_SEEN = 10_000  # Evict oldest after this threshold
+
+
+# ═════════════════════════════════════════════════════════════════
+# ELASTICSEARCH CLIENT FACTORY
+# ═════════════════════════════════════════════════════════════════
+
+def _build_es_client() -> Elasticsearch:
+    """
+    Creates an Elasticsearch client using env vars.
+    Supports basic auth or API key authentication.
+    """
+    kwargs = {
+        "hosts": [ES_HOST],
+        "request_timeout": 15,
+        "max_retries": 2,
+        "retry_on_timeout": True,
+    }
+
+    if ES_API_KEY:
+        kwargs["api_key"] = ES_API_KEY
+    else:
+        kwargs["basic_auth"] = (ES_USER, ES_PASS)
+
+    # Disable SSL verification for dev (change for prod)
+    if ES_HOST.startswith("https"):
+        kwargs["verify_certs"] = False
+        import urllib3
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+    return Elasticsearch(**kwargs)
+
+
+def _check_es_health(es: Elasticsearch) -> dict:
+    """Quick ES cluster health check."""
+    try:
+        info = es.info()
+        health = es.cluster.health()
+        return {
+            "connected": True,
+            "cluster_name": info.get("cluster_name", "unknown"),
+            "version": info.get("version", {}).get("number", "unknown"),
+            "status": health.get("status", "unknown"),
+        }
+    except Exception as e:
+        return {"connected": False, "error": str(e)}
+
+
+# ═════════════════════════════════════════════════════════════════
+# RAW EVENT NORMALISATION
+# ═════════════════════════════════════════════════════════════════
+
+def _normalise_raw_event(detection: dict, correlated_events: list[dict] | None = None) -> dict:
+    """
+    Extracts a normalised raw_event from a detection's raw_hits or
+    correlated event cluster. If no raw hit exists (aggregation-only
+    rules like AUTH_BRUTEFORCE), builds a synthetic raw_event from
+    pivot metadata.
+    """
+    raw_hits = detection.get("raw_hits", [])
+
+    if raw_hits:
+        hit = raw_hits[0]
+        raw = hit.get("raw_event", hit)  # Support both nested & flat schemas
+        return {
+            "source_ip":      raw.get("source_ip") or hit.get("source", {}).get("ip", detection.get("pivot_ip", "")),
+            "destination_ip":  raw.get("destination_ip") or hit.get("destination", {}).get("ip", ""),
+            "affected_user":   raw.get("affected_user") or hit.get("user", {}).get("name", detection.get("pivot_user", "")),
+            "affected_host":   raw.get("affected_host") or hit.get("host", {}).get("name", ""),
+            "port":            raw.get("port") or hit.get("destination", {}).get("port"),
+            "protocol":        raw.get("protocol") or hit.get("network", {}).get("transport", ""),
+            "action":          raw.get("action") or detection.get("detail", ""),
+            "timestamp":       raw.get("timestamp") or hit.get("@timestamp", datetime.now(timezone.utc).isoformat()),
+        }
+
+    # Synthetic raw_event for aggregation-only rules
+    return {
+        "source_ip":      detection.get("pivot_ip", ""),
+        "destination_ip":  "",
+        "affected_user":   detection.get("pivot_user", ""),
+        "affected_host":   "",
+        "port":            None,
+        "protocol":        "",
+        "action":          detection.get("detail", ""),
+        "timestamp":       datetime.now(timezone.utc).isoformat(),
+    }
+
+
+# ═════════════════════════════════════════════════════════════════
+# DEDUPLICATION
+# ═════════════════════════════════════════════════════════════════
+
+def _dedup_key(detection: dict) -> str:
+    """Unique key per rule+pivot to prevent rapid re-dispatch."""
+    return f"{detection['rule_id']}::{detection.get('pivot_ip', '')}::{detection.get('pivot_user', '')}"
+
+
+def _is_duplicate(key: str) -> bool:
+    global _seen_detection_keys
+    if key in _seen_detection_keys:
+        return True
+    if len(_seen_detection_keys) > _MAX_SEEN:
+        _seen_detection_keys = set()  # Simple eviction
+    _seen_detection_keys.add(key)
+    return False
+
+
+# ═════════════════════════════════════════════════════════════════
+# INCIDENT ASSEMBLY & DISPATCH
+# ═════════════════════════════════════════════════════════════════
+
+def assemble_incident(
+    detection: dict,
+    es: Elasticsearch,
+) -> dict:
+    """
+    Takes a single detection from the Rules Engine and produces a
+    fully-enriched incident dict matching Layer 3's expected schema.
+
+    Pipeline:
+      Detection → Anomaly Scoring → Threat Intel → Correlation → JSON
+    """
+    rule_id = detection["rule_id"]
+    pivot_ip = detection.get("pivot_ip")
+    pivot_user = detection.get("pivot_user")
+
+    # ── 1. Anomaly block (Engine 1) ───────────────────────
+    anomaly_block = build_anomaly_block(
+        rule_id=rule_id,
+        es=es,
+        user=pivot_user,
+        extra_ueba_flags=detection.get("ueba_flags"),
+    )
+
+    # ── 2. Raw event normalisation ────────────────────────
+    raw_event = _normalise_raw_event(detection)
+
+    # ── 3. Threat intel enrichment (Engine 2) ─────────────
+    threat_intel_block = enrich_threat_intel(
+        raw_event=raw_event,
+        rule_id=rule_id,
+        es_client=es,
+    )
+
+    # ── 4. Correlation + Timeline (Engine 3) ──────────────
+    correlation_block = build_correlation_block(
+        es=es,
+        pivot_ip=pivot_ip,
+        pivot_user=pivot_user,
+    )
+
+    # ── 5. Assemble final schema ──────────────────────────
+    incident_id = f"INC-{datetime.now(timezone.utc).strftime('%Y-%m%d-%H%M%S')}-{uuid.uuid4().hex[:6].upper()}"
+
+    return {
+        "incident_id":          incident_id,
+        "timestamp":            raw_event.get("timestamp", datetime.now(timezone.utc).isoformat()),
+        "log_type":             detection["log_type"],
+        "raw_event":            raw_event,
+        "engine_1_anomaly":     anomaly_block,
+        "engine_2_threat_intel": threat_intel_block,
+        "engine_3_correlation":  correlation_block,
+    }
+
+
+def dispatch_to_layer3(incidents: list[dict]) -> dict:
+    """
+    POST the assembled incident list to Layer 3 (AI Analysis).
+    Returns the response or an error dict.
+    """
+    if not incidents:
+        return {"status": "no_incidents", "count": 0}
+
+    try:
+        print(f"📡 Dispatching {len(incidents)} incident(s) to Layer 3: {LAYER_3_URL}")
+        resp = requests.post(LAYER_3_URL, json=incidents, timeout=10)
+        if resp.status_code in (200, 202):
+            print(f"✅ Layer 3 accepted {len(incidents)} incident(s): {resp.json()}")
+            return {"status": "dispatched", "count": len(incidents), "response": resp.json()}
+        else:
+            print(f"⚠️ Layer 3 returned status {resp.status_code}: {resp.text}")
+            return {"status": "error", "http_status": resp.status_code, "body": resp.text}
+    except requests.exceptions.ConnectionError:
+        print(f"❌ Cannot reach Layer 3 at {LAYER_3_URL}")
+        return {"status": "connection_error", "url": LAYER_3_URL}
+    except Exception as e:
+        print(f"❌ Dispatch failed: {e}")
+        return {"status": "error", "detail": str(e)}
+
+
+# ═════════════════════════════════════════════════════════════════
+# POLL CYCLE  (runs in background asyncio task)
+# ═════════════════════════════════════════════════════════════════
+
+async def _poll_cycle(es: Elasticsearch):
+    """
+    One full detection cycle:
+      1. Run all rules against ES
+      2. Deduplicate
+      3. Assemble each detection into a Layer 3 incident
+      4. Batch-dispatch to Layer 3
+    """
+    print(f"\n🔄 [{datetime.now(timezone.utc).isoformat()}] Starting detection cycle...")
+
+    detections = run_all_rules(es)
+    if not detections:
+        print("   ✅ No detections this cycle.")
+        return
+
+    # Deduplicate
+    fresh: list[dict] = []
+    for d in detections:
+        key = _dedup_key(d)
+        if not _is_duplicate(key):
+            fresh.append(d)
+        else:
+            print(f"   ⏭️ Skipping duplicate: {d['rule_id']} / {d.get('pivot_ip')}")
+
+    if not fresh:
+        print("   ✅ All detections were duplicates.")
+        return
+
+    print(f"   🚨 {len(fresh)} NEW detection(s) — assembling incidents...")
+
+    # Assemble
+    incidents: list[dict] = []
+    for d in fresh:
+        try:
+            inc = assemble_incident(d, es)
+            incidents.append(inc)
+        except Exception as e:
+            print(f"   ❌ Assembly failed for {d['rule_id']}: {e}")
+
+    # Dispatch
+    dispatch_to_layer3(incidents)
+
+
+async def _background_poller(es: Elasticsearch):
+    """Infinite polling loop running as a background asyncio task."""
+    print(f"🚀 Background poller started (interval: {POLL_INTERVAL_SECONDS}s)")
+    while True:
+        try:
+            await _poll_cycle(es)
+        except Exception as e:
+            print(f"❌ Poll cycle crashed: {e}")
+        await asyncio.sleep(POLL_INTERVAL_SECONDS)
+
+
+# ═════════════════════════════════════════════════════════════════
+# FASTAPI APPLICATION
+# ═════════════════════════════════════════════════════════════════
+
+# Shared ES client (created on startup)
+_es_client: Optional[Elasticsearch] = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup / shutdown lifecycle."""
+    global _es_client
+    print("═" * 60)
+    print("  tuxSOC — Layer 2: Detection & Correlation Engine")
+    print("═" * 60)
+
+    _es_client = _build_es_client()
+    health = _check_es_health(_es_client)
+
+    if health["connected"]:
+        print(f"✅ Connected to Elasticsearch: {health['cluster_name']} v{health['version']} [{health['status']}]")
+        # Start background poller
+        task = asyncio.create_task(_background_poller(_es_client))
+    else:
+        print(f"⚠️ Elasticsearch unreachable: {health.get('error')}")
+        print("   Layer 2 will operate in API-only mode (manual trigger via /api/v1/scan)")
+        task = None
+
+    yield
+
+    # Shutdown
+    if task:
+        task.cancel()
+    if _es_client:
+        _es_client.close()
+    print("🛑 Layer 2 shut down.")
+
+
+app = FastAPI(
+    title="tuxSOC Layer 2: Detection & Correlation Engine",
+    description=(
+        "Stateless, ES-backed detection engine. "
+        "Polls Elasticsearch for attack signatures across web, auth, endpoint, "
+        "and network indices. Correlates events and dispatches enriched incidents to Layer 3."
+    ),
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+
+# ── Health ────────────────────────────────────────────────────
+@app.get("/health")
+async def health_check():
+    if _es_client:
+        es_health = _check_es_health(_es_client)
+    else:
+        es_health = {"connected": False, "error": "Client not initialised"}
+    return {
+        "status": "healthy",
+        "service": "Layer 2: Detection & Correlation",
+        "elasticsearch": es_health,
+    }
+
+
+# ── Manual Scan Trigger ──────────────────────────────────────
+@app.post("/api/v1/scan")
+async def manual_scan():
+    """
+    Manually trigger a full detection cycle (useful for demos & testing).
+    """
+    if not _es_client:
+        raise HTTPException(status_code=503, detail="Elasticsearch client not available")
+
+    es_health = _check_es_health(_es_client)
+    if not es_health["connected"]:
+        raise HTTPException(status_code=503, detail=f"Elasticsearch unreachable: {es_health.get('error')}")
+
+    await _poll_cycle(_es_client)
+    return {"status": "scan_complete", "timestamp": datetime.now(timezone.utc).isoformat()}
+
+
+# ── Simulate Detection (for testing without ES) ──────────────
+@app.post("/api/v1/simulate")
+async def simulate_detection(detections: list[dict]):
+    """
+    Accepts a list of pre-formed detection dicts (same format as
+    rules_engine output) and runs them through the assembly +
+    dispatch pipeline. Useful for integration testing without ES.
+    """
+    if not _es_client:
+        raise HTTPException(status_code=503, detail="Elasticsearch client not available")
+
+    incidents = []
+    for d in detections:
+        try:
+            inc = assemble_incident(d, _es_client)
+            incidents.append(inc)
+        except Exception as e:
+            print(f"❌ Simulation assembly failed: {e}")
+
+    result = dispatch_to_layer3(incidents)
+    return {"assembled": len(incidents), "dispatch": result}
+
+
+# ── Status / Metrics ─────────────────────────────────────────
+@app.get("/api/v1/status")
+async def status():
+    return {
+        "dedup_cache_size": len(_seen_detection_keys),
+        "poll_interval_seconds": POLL_INTERVAL_SECONDS,
+        "layer_3_url": LAYER_3_URL,
+        "es_host": ES_HOST,
+    }
+
+
+# ═════════════════════════════════════════════════════════════════
+# ENTRY POINT
+# ═════════════════════════════════════════════════════════════════
+
+if __name__ == "__main__":
+    import uvicorn
+    print("🚀 Starting Layer 2 Detection Engine...")
+    uvicorn.run(app, host="0.0.0.0", port=8002)
+===== ./rules_engine.py =====
+# rules_engine.py
+# Location: layer_2_detection/rules_engine.py
+# ─────────────────────────────────────────────────────────────────
+# Comprehensive ES-backed Rule Engine for Layer 2.
+#
+# Each rule is a function that returns a list of "detections", where
+# each detection is a dict:
+#   {
+#       "rule_id":    "WEB_SQLI",
+#       "log_type":   "web",
+#       "raw_hits":   [ ... raw ES docs ... ],
+#       "pivot_ip":   "1.2.3.4",         # key for correlation
+#       "pivot_user": "jdoe",            # optional
+#       "ueba_flags": ["sqli_pattern"],  # extra flags for anomaly engine
+#       "detail":     "Detected SQL injection payload in URI parameter",
+#   }
+#
+# All queries use Request Body DSL via elasticsearch-py.
+# ─────────────────────────────────────────────────────────────────
+
+from __future__ import annotations
+from elasticsearch import Elasticsearch, NotFoundError
+from typing import Optional
+
+
+# ═════════════════════════════════════════════════════════════════
+# HELPERS
+# ═════════════════════════════════════════════════════════════════
+
+def _safe_search(es: Elasticsearch, index: str, body: dict, label: str) -> list[dict]:
+    """Execute a search and return hits, swallowing missing-index errors."""
+    try:
+        resp = es.search(index=index, body=body, request_timeout=10)
+        return [h["_source"] for h in resp["hits"]["hits"]]
+    except NotFoundError:
+        print(f"⚠️ [RulesEngine] Index '{index}' does not exist — skipping {label}")
+        return []
+    except Exception as e:
+        print(f"⚠️ [RulesEngine] Query failed for {label}: {e}")
+        return []
+
+
+def _safe_agg_search(es: Elasticsearch, index: str, body: dict, label: str) -> dict:
+    """Execute an aggregation search and return the full response body."""
+    try:
+        return es.search(index=index, body=body, request_timeout=10)
+    except NotFoundError:
+        print(f"⚠️ [RulesEngine] Index '{index}' does not exist — skipping {label}")
+        return {}
+    except Exception as e:
+        print(f"⚠️ [RulesEngine] Agg query failed for {label}: {e}")
+        return {}
+
+
+# ═════════════════════════════════════════════════════════════════
+# 1. WEB ATTACK RULES  (index: logs-web)
+# ═════════════════════════════════════════════════════════════════
+
+def rule_web_sqli(es: Elasticsearch, time_range: str = "now-5m") -> list[dict]:
+    """SQL Injection — OWASP A05: Injection"""
+    body = {
+        "size": 100,
+        "query": {
+            "bool": {
+                "filter": [{"range": {"@timestamp": {"gte": time_range}}}],
+                "should": [
+                    {"match_phrase": {"request.uri": "UNION SELECT"}},
+                    {"match_phrase": {"request.uri": "1=1"}},
+                    {"wildcard":     {"request.uri.keyword": "*--*"}},
+                    {"match_phrase": {"request.uri": "WAITFOR DELAY"}},
+                    {"match_phrase": {"request.body": "UNION SELECT"}},
+                    {"match_phrase": {"request.body": "1=1"}},
+                    {"match_phrase": {"request.body": "WAITFOR DELAY"}},
+                ],
+                "minimum_should_match": 1,
+            }
+        },
+    }
+    hits = _safe_search(es, "logs-web", body, "WEB_SQLI")
+    detections = []
+    for h in hits:
+        detections.append({
+            "rule_id":    "WEB_SQLI",
+            "log_type":   "web",
+            "raw_hits":   [h],
+            "pivot_ip":   h.get("source", {}).get("ip") or h.get("source_ip", ""),
+            "pivot_user": h.get("user", {}).get("name"),
+            "ueba_flags": ["sqli_pattern"],
+            "detail":     "SQL Injection payload detected in HTTP request",
+        })
+    return detections
+
+
+def rule_web_cmdi(es: Elasticsearch, time_range: str = "now-5m") -> list[dict]:
+    """OS Command Injection"""
+    body = {
+        "size": 100,
+        "query": {
+            "bool": {
+                "filter": [{"range": {"@timestamp": {"gte": time_range}}}],
+                "should": [
+                    {"match_phrase": {"request.uri": "/etc/passwd"}},
+                    {"match_phrase": {"request.uri": "| bash"}},
+                    {"match_phrase": {"request.uri": "; wget"}},
+                    {"match_phrase": {"request.body": "/etc/passwd"}},
+                    {"match_phrase": {"request.body": "| bash"}},
+                    {"match_phrase": {"request.body": "; wget"}},
+                ],
+                "minimum_should_match": 1,
+            }
+        },
+    }
+    hits = _safe_search(es, "logs-web", body, "WEB_CMDI")
+    return [{
+        "rule_id": "WEB_CMDI", "log_type": "web", "raw_hits": [h],
+        "pivot_ip": h.get("source", {}).get("ip") or h.get("source_ip", ""),
+        "pivot_user": h.get("user", {}).get("name"),
+        "ueba_flags": ["cmdi_pattern"],
+        "detail": "OS Command Injection payload detected",
+    } for h in hits]
+
+
+def rule_web_lfi(es: Elasticsearch, time_range: str = "now-5m") -> list[dict]:
+    """Path Traversal / Local File Inclusion"""
+    body = {
+        "size": 100,
+        "query": {
+            "bool": {
+                "filter": [{"range": {"@timestamp": {"gte": time_range}}}],
+                "should": [
+                    {"wildcard": {"request.uri.keyword": "*../*"}},
+                    {"wildcard": {"request.uri.keyword": "*..%2f*"}},
+                    {"wildcard": {"request.uri.keyword": "*..%252f*"}},
+                    {"match_phrase": {"request.uri": "/etc/shadow"}},
+                    {"match_phrase": {"request.uri": "boot.ini"}},
+                ],
+                "minimum_should_match": 1,
+            }
+        },
+    }
+    hits = _safe_search(es, "logs-web", body, "WEB_LFI")
+    return [{
+        "rule_id": "WEB_LFI", "log_type": "web", "raw_hits": [h],
+        "pivot_ip": h.get("source", {}).get("ip") or h.get("source_ip", ""),
+        "pivot_user": h.get("user", {}).get("name"),
+        "ueba_flags": ["lfi_pattern"],
+        "detail": "Path traversal / LFI attempt detected",
+    } for h in hits]
+
+
+def rule_web_xss(es: Elasticsearch, time_range: str = "now-5m") -> list[dict]:
+    """Cross-Site Scripting (XSS)"""
+    body = {
+        "size": 100,
+        "query": {
+            "bool": {
+                "filter": [{"range": {"@timestamp": {"gte": time_range}}}],
+                "should": [
+                    {"match_phrase": {"request.uri": "<script>"}},
+                    {"match_phrase": {"request.uri": "javascript:"}},
+                    {"match_phrase": {"request.uri": "onerror="}},
+                    {"match_phrase": {"request.body": "<script>"}},
+                    {"match_phrase": {"request.body": "onerror="}},
+                ],
+                "minimum_should_match": 1,
+            }
+        },
+    }
+    hits = _safe_search(es, "logs-web", body, "WEB_XSS")
+    return [{
+        "rule_id": "WEB_XSS", "log_type": "web", "raw_hits": [h],
+        "pivot_ip": h.get("source", {}).get("ip") or h.get("source_ip", ""),
+        "pivot_user": h.get("user", {}).get("name"),
+        "ueba_flags": ["xss_pattern"],
+        "detail": "XSS payload detected in HTTP request",
+    } for h in hits]
+
+
+def rule_web_scanner(es: Elasticsearch, time_range: str = "now-5m") -> list[dict]:
+    """Automated Scanner / Recon Traffic"""
+    body = {
+        "size": 100,
+        "query": {
+            "bool": {
+                "filter": [{"range": {"@timestamp": {"gte": time_range}}}],
+                "should": [
+                    {"match_phrase": {"user_agent.original": "sqlmap"}},
+                    {"match_phrase": {"user_agent.original": "nikto"}},
+                    {"match_phrase": {"user_agent.original": "nmap"}},
+                    {"match_phrase": {"user_agent.original": "python-requests"}},
+                    {"match_phrase": {"user_agent.original": "dirbuster"}},
+                    {"match_phrase": {"user_agent.original": "gobuster"}},
+                    {"match_phrase": {"user_agent.original": "masscan"}},
+                ],
+                "minimum_should_match": 1,
+            }
+        },
+    }
+    hits = _safe_search(es, "logs-web", body, "WEB_SCANNER")
+    return [{
+        "rule_id": "WEB_SCANNER", "log_type": "web", "raw_hits": [h],
+        "pivot_ip": h.get("source", {}).get("ip") or h.get("source_ip", ""),
+        "pivot_user": None,
+        "ueba_flags": ["scanner_traffic"],
+        "detail": f"Automated scanner detected: {h.get('user_agent', {}).get('original', 'Unknown')}",
+    } for h in hits]
+
+
+def rule_web_ssrf(es: Elasticsearch, time_range: str = "now-5m") -> list[dict]:
+    """Server-Side Request Forgery (SSRF) — targeting cloud metadata"""
+    body = {
+        "size": 100,
+        "query": {
+            "bool": {
+                "filter": [{"range": {"@timestamp": {"gte": time_range}}}],
+                "should": [
+                    {"match_phrase": {"request.uri": "169.254.169.254"}},
+                    {"match_phrase": {"request.uri": "metadata.google"}},
+                    {"match_phrase": {"request.uri": "100.100.100.200"}},  # Alibaba
+                ],
+                "minimum_should_match": 1,
+            }
+        },
+    }
+    hits = _safe_search(es, "logs-web", body, "WEB_SSRF")
+    return [{
+        "rule_id": "WEB_SSRF", "log_type": "web", "raw_hits": [h],
+        "pivot_ip": h.get("source", {}).get("ip") or h.get("source_ip", ""),
+        "pivot_user": h.get("user", {}).get("name"),
+        "ueba_flags": ["ssrf_attempt"],
+        "detail": "SSRF attempt targeting cloud metadata endpoint",
+    } for h in hits]
+
+
+# ═════════════════════════════════════════════════════════════════
+# 2. AUTHENTICATION ATTACK RULES  (index: logs-auth)
+# ═════════════════════════════════════════════════════════════════
+
+def rule_auth_bruteforce(es: Elasticsearch, time_range: str = "now-1m") -> list[dict]:
+    """Brute Force — >20 failures from single source_ip in 1 minute"""
+    body = {
+        "size": 0,
+        "query": {
+            "bool": {
+                "filter": [
+                    {"range": {"@timestamp": {"gte": time_range}}},
+                    {"term": {"event.outcome": "failure"}},
+                ]
+            }
+        },
+        "aggs": {
+            "by_ip": {
+                "terms": {"field": "source.ip", "min_doc_count": 21, "size": 100},
+            }
+        },
+    }
+    resp = _safe_agg_search(es, "logs-auth", body, "AUTH_BRUTEFORCE")
+    if not resp:
+        return []
+
+    detections = []
+    buckets = resp.get("aggregations", {}).get("by_ip", {}).get("buckets", [])
+    for b in buckets:
+        detections.append({
+            "rule_id":    "AUTH_BRUTEFORCE",
+            "log_type":   "auth",
+            "raw_hits":   [],
+            "pivot_ip":   b["key"],
+            "pivot_user": None,
+            "ueba_flags": ["credential_stuffing_pattern"],
+            "detail":     f"Brute force: {b['doc_count']} failed logins from {b['key']} in 1 minute",
+        })
+    return detections
+
+
+def rule_auth_spray(es: Elasticsearch, time_range: str = "now-5m") -> list[dict]:
+    """Password Spraying — single IP targeting >10 distinct accounts in 5 min"""
+    body = {
+        "size": 0,
+        "query": {
+            "bool": {
+                "filter": [
+                    {"range": {"@timestamp": {"gte": time_range}}},
+                    {"term": {"event.outcome": "failure"}},
+                ]
+            }
+        },
+        "aggs": {
+            "by_ip": {
+                "terms": {"field": "source.ip", "size": 200},
+                "aggs": {
+                    "unique_users": {
+                        "cardinality": {"field": "raw_event.affected_user.keyword"}
+                    }
+                },
+            }
+        },
+    }
+    resp = _safe_agg_search(es, "logs-auth", body, "AUTH_SPRAY")
+    if not resp:
+        return []
+
+    detections = []
+    for b in resp.get("aggregations", {}).get("by_ip", {}).get("buckets", []):
+        unique = b.get("unique_users", {}).get("value", 0)
+        if unique > 10:
+            detections.append({
+                "rule_id":    "AUTH_SPRAY",
+                "log_type":   "auth",
+                "raw_hits":   [],
+                "pivot_ip":   b["key"],
+                "pivot_user": None,
+                "ueba_flags": ["password_spraying"],
+                "detail":     f"Password spraying: {b['key']} targeted {unique} unique accounts in 5 min",
+            })
+    return detections
+
+
+def rule_auth_mfa_fatigue(es: Elasticsearch, time_range: str = "now-5m") -> list[dict]:
+    """MFA Fatigue — High MFA prompt frequency followed by a success"""
+    body = {
+        "size": 0,
+        "query": {
+            "bool": {
+                "filter": [
+                    {"range": {"@timestamp": {"gte": time_range}}},
+                    {"term": {"event.category": "authentication"}},
+                    {"term": {"event.action": "mfa_prompt"}},
+                ]
+            }
+        },
+        "aggs": {
+            "by_user": {
+                "terms": {"field": "raw_event.affected_user.keyword", "min_doc_count": 5, "size": 100},
+            }
+        },
+    }
+    resp = _safe_agg_search(es, "logs-auth", body, "AUTH_MFA_FATIGUE")
+    if not resp:
+        return []
+
+    detections = []
+    for b in resp.get("aggregations", {}).get("by_user", {}).get("buckets", []):
+        detections.append({
+            "rule_id":    "AUTH_MFA_FATIGUE",
+            "log_type":   "auth",
+            "raw_hits":   [],
+            "pivot_ip":   "",
+            "pivot_user": b["key"],
+            "ueba_flags": ["mfa_fatigue_attack"],
+            "detail":     f"MFA fatigue: {b['doc_count']} MFA prompts for user {b['key']} in 5 min",
+        })
+    return detections
+
+
+def rule_auth_priv_abuse(es: Elasticsearch, time_range: str = "now-5m") -> list[dict]:
+    """Privileged Account Abuse — admin/root logins from unexpected sources"""
+    PRIV_ACCOUNTS = ["admin", "root", "Administrator", "domain_admin"]
+    SAFE_SUBNETS = ["10.0.99.", "10.0.100."]  # Jump-box / PAM subnets
+
+    body = {
+        "size": 50,
+        "query": {
+            "bool": {
+                "filter": [
+                    {"range": {"@timestamp": {"gte": time_range}}},
+                    {"terms": {"raw_event.affected_user.keyword": PRIV_ACCOUNTS}},
+                    {"term": {"event.outcome": "success"}},
+                ],
+            }
+        },
+    }
+    hits = _safe_search(es, "logs-auth", body, "AUTH_PRIV_ABUSE")
+    detections = []
+    for h in hits:
+        src_ip = h.get("source", {}).get("ip") or h.get("raw_event", {}).get("source_ip", "")
+        if not any(src_ip.startswith(prefix) for prefix in SAFE_SUBNETS):
+            detections.append({
+                "rule_id":    "AUTH_PRIV_ABUSE",
+                "log_type":   "auth",
+                "raw_hits":   [h],
+                "pivot_ip":   src_ip,
+                "pivot_user": h.get("raw_event", {}).get("affected_user"),
+                "ueba_flags": ["privileged_account_abuse", "unusual_source"],
+                "detail":     f"Privileged account login from unexpected source {src_ip}",
+            })
+    return detections
+
+
+# ═════════════════════════════════════════════════════════════════
+# 3. ENDPOINT ATTACK RULES  (index: logs-endpoint)
+# ═════════════════════════════════════════════════════════════════
+
+def rule_ep_ransomware(es: Elasticsearch, time_range: str = "now-5m") -> list[dict]:
+    """Ransomware Behaviour — mass file mods, .encrypted extensions, VSS deletion"""
+    body = {
+        "size": 50,
+        "query": {
+            "bool": {
+                "filter": [{"range": {"@timestamp": {"gte": time_range}}}],
+                "should": [
+                    {"wildcard": {"process.command_line.keyword": "*.encrypted*"}},
+                    {"wildcard": {"process.command_line.keyword": "*.locked*"}},
+                    {"match_phrase": {"process.command_line": "vssadmin.exe delete shadows"}},
+                    {"match_phrase": {"process.command_line": "vssadmin delete shadows"}},
+                    {"match_phrase": {"raw_event.action": "mass_file_modification"}},
+                    {"wildcard": {"raw_event.action.keyword": "*ransomware*"}},
+                    {"wildcard": {"raw_event.action.keyword": "*.encrypted*"}},
+                ],
+                "minimum_should_match": 1,
+            }
+        },
+    }
+    hits = _safe_search(es, "logs-endpoint", body, "EP_RANSOMWARE")
+    return [{
+        "rule_id": "EP_RANSOMWARE", "log_type": "endpoint", "raw_hits": [h],
+        "pivot_ip": h.get("source", {}).get("ip") or h.get("raw_event", {}).get("source_ip", ""),
+        "pivot_user": h.get("user", {}).get("name") or h.get("raw_event", {}).get("affected_user"),
+        "ueba_flags": ["mass_file_modification", "ransomware_behavior"],
+        "detail": "Ransomware behaviour detected: mass file encryption or VSS deletion",
+    } for h in hits]
+
+
+def rule_ep_lolbin(es: Elasticsearch, time_range: str = "now-5m") -> list[dict]:
+    """Living off the Land / LOLBins — suspicious PowerShell execution"""
+    body = {
+        "size": 50,
+        "query": {
+            "bool": {
+                "filter": [{"range": {"@timestamp": {"gte": time_range}}}],
+                "should": [
+                    {"match_phrase": {"process.command_line": "-ExecutionPolicy Bypass"}},
+                    {"match_phrase": {"process.command_line": "-EncodedCommand"}},
+                    {"match_phrase": {"process.command_line": "Invoke-WebRequest"}},
+                    {"match_phrase": {"process.command_line": "Invoke-Expression"}},
+                    {"match_phrase": {"process.command_line": "IEX"}},
+                    {"match_phrase": {"process.command_line": "DownloadString"}},
+                    {"match_phrase": {"process.command_line": "-WindowStyle Hidden"}},
+                    {"wildcard": {"raw_event.action.keyword": "*powershell*-ExecutionPolicy Bypass*"}},
+                    {"wildcard": {"raw_event.action.keyword": "*powershell*-EncodedCommand*"}},
+                ],
+                "minimum_should_match": 1,
+            }
+        },
+    }
+    hits = _safe_search(es, "logs-endpoint", body, "EP_LOLBIN")
+    return [{
+        "rule_id": "EP_LOLBIN", "log_type": "endpoint", "raw_hits": [h],
+        "pivot_ip": h.get("source", {}).get("ip") or h.get("raw_event", {}).get("source_ip", ""),
+        "pivot_user": h.get("user", {}).get("name") or h.get("raw_event", {}).get("affected_user"),
+        "ueba_flags": ["suspicious_process_arguments"],
+        "detail": "Suspicious PowerShell / LOLBin execution detected",
+    } for h in hits]
+
+
+def rule_ep_credential_dump(es: Elasticsearch, time_range: str = "now-5m") -> list[dict]:
+    """Credential Dumping — lsass access, mimikatz, procdump"""
+    body = {
+        "size": 50,
+        "query": {
+            "bool": {
+                "filter": [{"range": {"@timestamp": {"gte": time_range}}}],
+                "should": [
+                    {"match_phrase": {"process.command_line": "lsass.exe"}},
+                    {"match_phrase": {"process.command_line": "mimikatz"}},
+                    {"match_phrase": {"process.command_line": "procdump"}},
+                    {"match_phrase": {"process.command_line": "sekurlsa::logonpasswords"}},
+                    {"match_phrase": {"process.name": "mimikatz.exe"}},
+                    {"wildcard": {"process.command_line.keyword": "*procdump*-ma lsass*"}},
+                ],
+                "minimum_should_match": 1,
+            }
+        },
+    }
+    hits = _safe_search(es, "logs-endpoint", body, "EP_CREDENTIAL_DUMP")
+    return [{
+        "rule_id": "EP_CREDENTIAL_DUMP", "log_type": "endpoint", "raw_hits": [h],
+        "pivot_ip": h.get("source", {}).get("ip") or h.get("raw_event", {}).get("source_ip", ""),
+        "pivot_user": h.get("user", {}).get("name") or h.get("raw_event", {}).get("affected_user"),
+        "ueba_flags": ["credential_dumping"],
+        "detail": "Credential dumping technique detected",
+    } for h in hits]
+
+
+def rule_ep_def_evasion(es: Elasticsearch, time_range: str = "now-5m") -> list[dict]:
+    """Defense Evasion — Windows Event Log clearing"""
+    body = {
+        "size": 50,
+        "query": {
+            "bool": {
+                "filter": [{"range": {"@timestamp": {"gte": time_range}}}],
+                "should": [
+                    {"match_phrase": {"process.command_line": "wevtutil cl Security"}},
+                    {"match_phrase": {"process.command_line": "wevtutil cl Setup"}},
+                    {"match_phrase": {"process.command_line": "wevtutil cl Application"}},
+                    {"match_phrase": {"process.command_line": "Clear-EventLog"}},
+                    {"wildcard": {"raw_event.action.keyword": "*wevtutil*cl*"}},
+                    {"wildcard": {"raw_event.action.keyword": "*Event Log Cleared*"}},
+                ],
+                "minimum_should_match": 1,
+            }
+        },
+    }
+    hits = _safe_search(es, "logs-endpoint", body, "EP_DEF_EVASION")
+    return [{
+        "rule_id": "EP_DEF_EVASION", "log_type": "endpoint", "raw_hits": [h],
+        "pivot_ip": h.get("source", {}).get("ip") or h.get("raw_event", {}).get("source_ip", ""),
+        "pivot_user": h.get("user", {}).get("name") or h.get("raw_event", {}).get("affected_user"),
+        "ueba_flags": ["defense_evasion", "log_clearing"],
+        "detail": "Windows Event Log clearing detected",
+    } for h in hits]
+
+
+def rule_ep_persistence(es: Elasticsearch, time_range: str = "now-5m") -> list[dict]:
+    """Persistence — Registry Run keys or Scheduled Task creation"""
+    body = {
+        "size": 50,
+        "query": {
+            "bool": {
+                "filter": [{"range": {"@timestamp": {"gte": time_range}}}],
+                "should": [
+                    {"match_phrase": {"process.command_line": "CurrentVersion\\Run"}},
+                    {"match_phrase": {"process.command_line": "schtasks /create"}},
+                    {"match_phrase": {"process.command_line": "schtasks.exe /create"}},
+                    {"match_phrase": {"registry.path": "CurrentVersion\\Run"}},
+                    {"wildcard": {"raw_event.action.keyword": "*schtasks*/create*"}},
+                    {"wildcard": {"raw_event.action.keyword": "*Cron job created*"}},
+                ],
+                "minimum_should_match": 1,
+            }
+        },
+    }
+    hits = _safe_search(es, "logs-endpoint", body, "EP_PERSISTENCE")
+    return [{
+        "rule_id": "EP_PERSISTENCE", "log_type": "endpoint", "raw_hits": [h],
+        "pivot_ip": h.get("source", {}).get("ip") or h.get("raw_event", {}).get("source_ip", ""),
+        "pivot_user": h.get("user", {}).get("name") or h.get("raw_event", {}).get("affected_user"),
+        "ueba_flags": ["persistence_mechanism"],
+        "detail": "Persistence mechanism detected (Run key or Scheduled Task)",
+    } for h in hits]
+
+
+# ═════════════════════════════════════════════════════════════════
+# 4. NETWORK ATTACK RULES  (index: logs-network)
+# ═════════════════════════════════════════════════════════════════
+
+def rule_net_portscan(es: Elasticsearch, time_range: str = "now-5m") -> list[dict]:
+    """Port Scan — single IP hitting >50 ports on one host (vertical) or sweeping subnet"""
+    body = {
+        "size": 0,
+        "query": {
+            "bool": {
+                "filter": [{"range": {"@timestamp": {"gte": time_range}}}],
+            }
+        },
+        "aggs": {
+            "by_source": {
+                "terms": {"field": "source.ip", "size": 200},
+                "aggs": {
+                    "unique_ports": {
+                        "cardinality": {"field": "destination.port"}
+                    },
+                    "unique_dest_ips": {
+                        "cardinality": {"field": "destination.ip"}
+                    },
+                },
+            }
+        },
+    }
+    resp = _safe_agg_search(es, "logs-network", body, "NET_PORTSCAN")
+    if not resp:
+        return []
+
+    detections = []
+    for b in resp.get("aggregations", {}).get("by_source", {}).get("buckets", []):
+        ports = b.get("unique_ports", {}).get("value", 0)
+        dest_ips = b.get("unique_dest_ips", {}).get("value", 0)
+        if ports > 50 or dest_ips > 50:
+            detections.append({
+                "rule_id":    "NET_PORTSCAN",
+                "log_type":   "network",
+                "raw_hits":   [],
+                "pivot_ip":   b["key"],
+                "pivot_user": None,
+                "ueba_flags": ["high_connection_rate", "internal_scanning"] if dest_ips > 50 else ["high_connection_rate"],
+                "detail":     f"Port scan: {b['key']} → {ports} ports / {dest_ips} destinations",
+            })
+    return detections
+
+
+def rule_net_c2_beacon(es: Elasticsearch, time_range: str = "now-15m") -> list[dict]:
+    """C2 Beaconing — periodic outbound connections with consistent intervals"""
+    body = {
+        "size": 0,
+        "query": {
+            "bool": {
+                "filter": [
+                    {"range": {"@timestamp": {"gte": time_range}}},
+                    # Only outbound: source is internal (10.x, 172.16-31.x, 192.168.x)
+                ],
+            }
+        },
+        "aggs": {
+            "by_pair": {
+                "composite": {
+                    "size": 200,
+                    "sources": [
+                        {"src": {"terms": {"field": "source.ip"}}},
+                        {"dst": {"terms": {"field": "destination.ip"}}},
+                    ],
+                },
+                "aggs": {
+                    "conn_count": {"value_count": {"field": "@timestamp"}},
+                    "time_stats": {"extended_stats": {"field": "@timestamp"}},
+                },
+            }
+        },
+    }
+    resp = _safe_agg_search(es, "logs-network", body, "NET_C2_BEACON")
+    if not resp:
+        return []
+
+    detections = []
+    for b in resp.get("aggregations", {}).get("by_pair", {}).get("buckets", []):
+        count = b.get("conn_count", {}).get("value", 0)
+        std_dev = b.get("time_stats", {}).get("std_deviation", None)
+        if count >= 10 and std_dev is not None:
+            # Low std_dev in timestamps means highly periodic → beacon
+            # std_dev < 5000ms means nearly uniform spacing
+            if std_dev < 5000:
+                src = b["key"]["src"]
+                dst = b["key"]["dst"]
+                detections.append({
+                    "rule_id":    "NET_C2_BEACON",
+                    "log_type":   "network",
+                    "raw_hits":   [],
+                    "pivot_ip":   src,
+                    "pivot_user": None,
+                    "ueba_flags": ["periodic_beaconing"],
+                    "detail":     f"C2 beaconing: {src} → {dst} ({count} connections, σ={std_dev:.0f}ms)",
+                })
+    return detections
+
+
+def rule_net_dns_tunnel(es: Elasticsearch, time_range: str = "now-5m") -> list[dict]:
+    """DNS Tunneling — long TXT records or high-entropy subdomains"""
+    body = {
+        "size": 50,
+        "query": {
+            "bool": {
+                "filter": [
+                    {"range": {"@timestamp": {"gte": time_range}}},
+                    {"term": {"destination.port": 53}},
+                ],
+                "should": [
+                    {"script": {
+                        "script": {
+                            "source": "doc['dns.question.name.keyword'].size() > 0 && doc['dns.question.name.keyword'].value.length() > 60",
+                            "lang": "painless",
+                        }
+                    }},
+                    {"term": {"dns.question.type": "TXT"}},
+                    {"wildcard": {"raw_event.action.keyword": "*DNS TXT*"}},
+                    {"wildcard": {"raw_event.action.keyword": "*dns*tunnel*"}},
+                ],
+                "minimum_should_match": 1,
+            }
+        },
+    }
+    hits = _safe_search(es, "logs-network", body, "NET_DNS_TUNNEL")
+    return [{
+        "rule_id": "NET_DNS_TUNNEL", "log_type": "network", "raw_hits": [h],
+        "pivot_ip": h.get("source", {}).get("ip") or h.get("raw_event", {}).get("source_ip", ""),
+        "pivot_user": None,
+        "ueba_flags": ["dns_tunneling_pattern"],
+        "detail": "DNS tunneling detected: anomalous DNS TXT/long subdomain queries",
+    } for h in hits]
+
+
+def rule_net_exfil(es: Elasticsearch, time_range: str = "now-10m") -> list[dict]:
+    """Data Exfiltration — massive outbound byte transfer to external IPs"""
+    body = {
+        "size": 0,
+        "query": {
+            "bool": {
+                "filter": [{"range": {"@timestamp": {"gte": time_range}}}],
+                "must_not": [
+                    # Exclude known internal RFC1918
+                    {"wildcard": {"destination.ip": "10.*"}},
+                    {"wildcard": {"destination.ip": "192.168.*"}},
+                    {"wildcard": {"destination.ip": "172.16.*"}},
+                ],
+            }
+        },
+        "aggs": {
+            "by_source": {
+                "terms": {"field": "source.ip", "size": 100},
+                "aggs": {
+                    "total_bytes": {"sum": {"field": "network.bytes"}},
+                },
+            }
+        },
+    }
+    resp = _safe_agg_search(es, "logs-network", body, "NET_EXFIL")
+    if not resp:
+        return []
+
+    THRESHOLD_BYTES = 1_073_741_824  # 1 GB
+    detections = []
+    for b in resp.get("aggregations", {}).get("by_source", {}).get("buckets", []):
+        total = b.get("total_bytes", {}).get("value", 0)
+        if total >= THRESHOLD_BYTES:
+            gb = total / (1024**3)
+            detections.append({
+                "rule_id":    "NET_EXFIL",
+                "log_type":   "network",
+                "raw_hits":   [],
+                "pivot_ip":   b["key"],
+                "pivot_user": None,
+                "ueba_flags": ["high_volume_outbound", "data_exfiltration"],
+                "detail":     f"Data exfiltration: {b['key']} transferred {gb:.2f} GB outbound in 10 min",
+            })
+    return detections
+
+
+def rule_net_lateral(es: Elasticsearch, time_range: str = "now-5m") -> list[dict]:
+    """Lateral Movement — rapid internal SMB/RDP spread"""
+    body = {
+        "size": 0,
+        "query": {
+            "bool": {
+                "filter": [
+                    {"range": {"@timestamp": {"gte": time_range}}},
+                    {"terms": {"destination.port": [445, 3389, 5985, 135]}},
+                ],
+            }
+        },
+        "aggs": {
+            "by_source": {
+                "terms": {"field": "source.ip", "size": 100},
+                "aggs": {
+                    "unique_targets": {
+                        "cardinality": {"field": "destination.ip"}
+                    }
+                },
+            }
+        },
+    }
+    resp = _safe_agg_search(es, "logs-network", body, "NET_LATERAL")
+    if not resp:
+        return []
+
+    detections = []
+    for b in resp.get("aggregations", {}).get("by_source", {}).get("buckets", []):
+        targets = b.get("unique_targets", {}).get("value", 0)
+        if targets > 5:
+            detections.append({
+                "rule_id":    "NET_LATERAL",
+                "log_type":   "network",
+                "raw_hits":   [],
+                "pivot_ip":   b["key"],
+                "pivot_user": None,
+                "ueba_flags": ["lateral_movement_pattern"],
+                "detail":     f"Lateral movement: {b['key']} → {targets} internal targets via SMB/RDP/WMI",
+            })
+    return detections
+
+
+# ═════════════════════════════════════════════════════════════════
+# MASTER RUNNER
+# ═════════════════════════════════════════════════════════════════
+
+ALL_RULES = [
+    # Web
+    rule_web_sqli,
+    rule_web_cmdi,
+    rule_web_lfi,
+    rule_web_xss,
+    rule_web_scanner,
+    rule_web_ssrf,
+    # Auth
+    rule_auth_bruteforce,
+    rule_auth_spray,
+    rule_auth_mfa_fatigue,
+    rule_auth_priv_abuse,
+    # Endpoint
+    rule_ep_ransomware,
+    rule_ep_lolbin,
+    rule_ep_credential_dump,
+    rule_ep_def_evasion,
+    rule_ep_persistence,
+    # Network
+    rule_net_portscan,
+    rule_net_c2_beacon,
+    rule_net_dns_tunnel,
+    rule_net_exfil,
+    rule_net_lateral,
+]
+
+
+def run_all_rules(es: Elasticsearch) -> list[dict]:
+    """
+    Executes every detection rule against Elasticsearch.
+    Returns a flat list of all detections.
+    """
+    all_detections: list[dict] = []
+    for rule_fn in ALL_RULES:
+        try:
+            detections = rule_fn(es)
+            if detections:
+                print(f"🔎 [{rule_fn.__name__}] triggered {len(detections)} detection(s)")
+                all_detections.extend(detections)
+        except Exception as e:
+            print(f"⚠️ [RulesEngine] Rule {rule_fn.__name__} crashed: {e}")
+    return all_detections
+===== ./dump.txt =====
