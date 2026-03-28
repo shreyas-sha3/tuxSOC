@@ -1,0 +1,68 @@
+{
+  "ticket_id": "TICK-INC-2026-0328-234351-9C2A0F",
+  "timestamp": "2026-03-29T05:14:14.237362",
+  "event_id": "INC-2026-0328-234351-9C2A0F",
+  "severity": "MEDIUM",
+  "base_score": 6.4,
+  "attacker_ip": "148.14.5.9",
+  "affected_entity": "Unknown",
+  "intent": "WEB.CMDI",
+  "status": "OPEN",
+  "actions_taken": [],
+  "recommendations": [
+    "\ud83d\udd0d Investigate root cause within 4 business hours",
+    "\ud83d\udcc8 Trend analysis of similar events",
+    "\ud83d\udee1\ufe0f Consider preventive control enhancements",
+    "\ud83d\udd0d Conduct thorough log analysis",
+    "\ud83d\udcca Correlate with threat intelligence feeds",
+    "\ud83d\udee1\ufe0f Review relevant security control effectiveness"
+  ],
+  "playbook_path": "/home/art3mi5/Documents/Github/TuxSOC/layer_5_response/shared/playbooks/PLAY-INC-2026-0328-234351-9C2A0F.md",
+  "dora_compliance": {
+    "article_18_classification": {
+      "is_major_incident": true,
+      "criteria_triggered": [
+        "C1",
+        "C3",
+        "C4"
+      ],
+      "criteria_evaluation": {
+        "C1_clients_affected": {
+          "triggered": false,
+          "rationale": "The affected host is not a client, it's an internal system."
+        },
+        "C2_duration": {
+          "triggered": true,
+          "rationale": "The incident occurred within the last 4 hours, which meets the duration criteria for C2."
+        },
+        "C3_data_loss": {
+          "triggered": false,
+          "rationale": "There is no indication of data loss or exfiltration in this incident."
+        },
+        "C4_criticality": {
+          "triggered": true,
+          "rationale": "The severity of the incident is critical, meeting the criteria for C4."
+        },
+        "C5_financial_loss": {
+          "triggered": false,
+          "rationale": "There is no indication of financial loss or impact in this incident."
+        },
+        "C6_geographical_spread": {
+          "triggered": true,
+          "rationale": "The source IP is from a known malicious IP range, indicating geographical spread."
+        }
+      }
+    },
+    "article_19_initial_notification": {
+      "notification_type": "T+4h Initial Notification",
+      "incident_id": "INC-2026-0328-234351-9C2A0F",
+      "lei": "BARCLAYS-LEI-213800LBQA1Y9L22JB70",
+      "affected_services": [
+        "Barclays Online Banking"
+      ],
+      "initial_description": "Unauthorised HTTP GET request to a known malicious IP range, indicating potential Command and Control (C2) activity.",
+      "containment_status": "In Progress"
+    }
+  },
+  "regulatory_flag": "REGULATORY_ESCALATION_REQUIRED"
+}

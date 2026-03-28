@@ -15,11 +15,76 @@ from agent.agent_state import AgentState
 from prompt_builder import build_dora_classification_prompt
 from json_parser import parse_llm_response
 
+from rich.console import Console
+from rich.panel import Panel
+from rich.layout import Layout
+from rich.live import Live
+from rich.table import Table
+from rich.text import Text
+import threading
+import time
+
+console = Console()
+
+class L3UIState:
+    def __init__(self):
+        self.incidents_processed = 0
+        self.successful_analyses = 0
+        self.dora_evaluations = 0
+        self.status = "Idling..."
+        self.recent_analyses = []
+
+ui_state = L3UIState()
+
+def generate_layout():
+    layout = Layout()
+    layout.split_column(
+        Layout(name="header", size=3),
+        Layout(name="main")
+    )
+    
+    header = Panel(Text("tuxSOC - Layer 3: AI Cognitive Analyst (Ollama)", justify="center", style="bold magenta"))
+    layout["header"].update(header)
+    
+    layout["main"].split_row(
+        Layout(name="stats", ratio=1),
+        Layout(name="analyses", ratio=2)
+    )
+    
+    stats = Table.grid(padding=1)
+    stats.add_column(style="magenta", justify="left")
+    stats.add_column(style="white", justify="right")
+    stats.add_row("Status:", ui_state.status)
+    stats.add_row("Processed:", str(ui_state.incidents_processed))
+    stats.add_row("Success:", f"[green]{ui_state.successful_analyses}[/green]")
+    stats.add_row("DORA Evals:", f"[cyan]{ui_state.dora_evaluations}[/cyan]")
+    
+    layout["stats"].update(Panel(stats, title="Agent Statistics", border_style="magenta"))
+    
+    a_table = Table(show_header=True, header_style="bold green", expand=True)
+    a_table.add_column("Incident ID")
+    a_table.add_column("Intent")
+    a_table.add_column("Severity")
+    
+    for a in ui_state.recent_analyses[-15:]:
+        a_table.add_row(str(a.get('id', 'N/A')), str(a.get('intent', 'N/A')), str(a.get('severity', 'N/A')))
+        
+    layout["analyses"].update(Panel(a_table, title="🧠 Recent Analyses", border_style="green"))
+    return layout
+
+def _live_updater():
+    with Live(generate_layout(), refresh_per_second=4, screen=True) as live:
+        while True:
+            live.update(generate_layout())
+            time.sleep(0.25)
+
+threading.Thread(target=_live_updater, daemon=True).start()
+
 # ─────────────────────────────────────────
 # CONFIGURATION
 # ─────────────────────────────────────────
 # Change this to your teammate's actual IP during the live demo!
-CVSS_LAYER_URL = "http://localhost:8000/score"
+CVSS_LAYER_URL = "http://localhost:8004/api/v1/score"
 
 _graph = None
 
@@ -92,6 +157,7 @@ def _build_initial_state(incident_data: dict) -> AgentState:
         "severity": None,
         "cvss_vector": None,
         "narrative": None,
+        "kibana_query": None,
         "recommended_actions": None,
 
         # Control Fields
@@ -131,7 +197,7 @@ def _run_dora_classification(incident_id: str, observables: dict,
         raise ValueError("DORA LLM response could not be parsed")
 
     except Exception as e:
-        print(f"⚠️ DORA classification failed: {e} — returning safe default")
+        console.print(f"[bold yellow]⚠️ WARN: DORA classification failed:[/bold yellow] {e} — returning safe default")
         return {
             "article_18_classification": {
                 "is_major_incident": None,
@@ -190,6 +256,7 @@ def run_ai_analysis(incident_data: Union[dict, list]) -> dict:
         "severity":            None,
         "cvss_vector":         None,
         "narrative":           None,
+        "kibana_query":        None,
         "recommended_actions": [],
         "ai_failed":           False,
         "ai_failure_reason":   None,
@@ -199,7 +266,7 @@ def run_ai_analysis(incident_data: Union[dict, list]) -> dict:
     # ── Step 3: Check Ollama — soft fail, do not return ───────────
     connection = check_ollama_connection()
     if not connection["connected"]:
-        print(f"⚠️ Ollama unreachable: {connection.get('error')} — skipping graph, continuing to DORA")
+        ui_state.status = f"[bold yellow]⚠️ Ollama offline[/bold yellow]"
         final_state["ai_failed"]         = True
         final_state["ai_failure_reason"] = f"Ollama unreachable: {connection.get('error')}"
         final_state["narrative"]         = (
@@ -210,11 +277,12 @@ def run_ai_analysis(incident_data: Union[dict, list]) -> dict:
         # ── Step 4: Run LangGraph — soft fail, do not return ─────
         initial_state = _build_initial_state(incident_data)
         try:
+            ui_state.status = "[magenta]🧠 Agent evaluating incident...[/magenta]"
             graph_result = _get_graph().invoke(initial_state)
             # Merge graph output into final_state
             final_state.update({k: v for k, v in graph_result.items() if v is not None})
         except Exception as e:
-            print(f"⚠️ LangGraph crashed: {e} — using safe fallback, continuing to DORA")
+            ui_state.status = f"[bold yellow]⚠️ Graph crash: {e}[/bold yellow]"
             final_state["ai_failed"]         = True
             final_state["ai_failure_reason"] = f"LangGraph Crash: {str(e)}"
             final_state["narrative"]         = (
@@ -223,47 +291,56 @@ def run_ai_analysis(incident_data: Union[dict, list]) -> dict:
             )
 
     # ── Step 5: Build ai_block from whatever final_state contains ─
+    # Extracted from Layer 2 Threat Intel
+    engine2 = incident_data.get("engine_2_threat_intel", {})
+    cis_violations = engine2.get("cis_violations", [])
+
     ai_block = {
-        "intent":              final_state.get("intent"),
-        "severity":            final_state.get("severity"),
-        "cvss_vector":         final_state.get("cvss_vector"),
-        "narrative":           final_state.get("narrative"),
+        "intent":              final_state.get("intent") or "Unknown",
+        "severity":            final_state.get("severity") or "Unknown",
+        "cvss_vector":         final_state.get("cvss_vector") or {},
+        "narrative":           final_state.get("narrative") or "No narrative available.",
+        "kibana_query":        final_state.get("kibana_query"),
         "recommended_actions": final_state.get("recommended_actions", []),
         "ai_failed":           final_state.get("ai_failed", False),
         "ai_failure_reason":   final_state.get("ai_failure_reason"),
+        "cis_violations":      cis_violations,
     }
 
     # ── Step 6: DORA Classification — always runs, always returns ─
-    print("📋 Running DORA Article 18/19 Classification...")
+    ui_state.status = "[cyan]⚖️ Evaluating DORA compliance...[/cyan]"
+    ui_state.dora_evaluations += 1
     dora_report = _run_dora_classification(
         incident_id, observables, ai_block, incident_data
     )
 
     # ── Step 7: Push to CVSS teammate (best-effort, non-blocking) ─
     if not final_state.get("ai_failed") and final_state.get("validation_passed"):
-        scoring_payload = {
-            "incident_id":    incident_id,
-            "threat_summary": final_state.get("narrative"),
-            "cvss":           final_state.get("cvss_vector"),
-            "observables":    observables,
-            "dora_report":    dora_report,
-            "metadata": {
-                "intent":              final_state.get("intent"),
-                "severity":            final_state.get("severity"),
-                "narrative":           final_state.get("narrative"),
-                "recommended_actions": final_state.get("recommended_actions", [])
-            }
-        }
+        ui_state.successful_analyses += 1
         try:
-            print(f"📡 Attempting to push to CVSS Layer: {CVSS_LAYER_URL}")
-            resp = requests.post(CVSS_LAYER_URL, json=scoring_payload, timeout=5)
+            ui_state.status = "[blue]🤝 Handing off to Layer 4...[/blue]"
+            cvss_payload = {
+                "event_id":       incident_id,
+                "ai_analysis":    ai_block,
+                "dora_compliance": dora_report,
+                "observables":     observables,
+                "related_logs":    incident_data.get("correlated_evidence", [])
+            }
+            resp = requests.post(CVSS_LAYER_URL, json=cvss_payload, timeout=10)
             if resp.status_code == 200:
-                print("✅ Successfully pushed analysis to teammate.")
+                ui_state.status = "[green]✓ Ready for next incident[/green]"
             else:
-                print(f"⚠️ Teammate server returned status: {resp.status_code}")
+                ui_state.status = f"[yellow]⚠️ L4 returned {resp.status_code}[/yellow]"
         except Exception as e:
-            print(f"⚠️ Could not reach teammate's Scoring Layer: {e}")
+            ui_state.status = f"[red]❌ L4 handoff failed: {e}[/red]"
 
+    ui_state.incidents_processed += 1
+    ui_state.recent_analyses.append({
+        "id": incident_id,
+        "intent": final_state.get("intent", "Unknown"),
+        "severity": final_state.get("severity", "Unknown")
+    })
+    
     # ── Step 8: Single guaranteed return — four pillars always present ──
     return {
         "incident_id":     incident_id,
@@ -272,3 +349,14 @@ def run_ai_analysis(incident_data: Union[dict, list]) -> dict:
         "ai_analysis":     ai_block,
         "dora_compliance": dora_report,
     }
+
+if __name__ == "__main__":
+    import uvicorn
+    console.print("[bold magenta]🚀 Starting tuxSOC Layer 3 AI Analyst...[/bold magenta]")
+    uvicorn.run(
+        "layer_3_ai_analysis.app:app", 
+        host="0.0.0.0", 
+        port=8001, 
+        reload=False, 
+        access_log=False 
+    )

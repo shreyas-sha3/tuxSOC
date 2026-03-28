@@ -11,6 +11,7 @@ class AgentState(TypedDict):
     severity: Optional[str]
     cvss_vector: Optional[dict]
     narrative: Optional[str]
+    kibana_query: Optional[str]
     recommended_actions: Optional[list]
 
     # ── Legacy aliases (LLM may return these names) ──

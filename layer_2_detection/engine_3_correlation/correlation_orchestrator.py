@@ -1,44 +1,48 @@
-"""
-correlation_orchestrator.py
----------------------------
-Engine 3 orchestrator. Links events and builds the attack timeline.
-Always runs — it needs both Engine 1 and Engine 2 results to do its job.
-"""
+# correlation_orchestrator.py
+# Location: layer_2_detection/engine_3_correlation/correlation_orchestrator.py
+# ─────────────────────────────────────────────────────────────────
+# Orchestrates the full correlation + timeline pipeline for a
+# single detection alert, producing the engine_3_correlation block.
+# ─────────────────────────────────────────────────────────────────
 
-import logging
-import event_linker
-import timeline_builder
+from __future__ import annotations
+from elasticsearch import Elasticsearch
 
-logger = logging.getLogger(__name__)
+from layer_2_detection.engine_3_correlation.event_linker import correlate_events
+from layer_2_detection.engine_3_correlation.timeline_builder import build_attack_timeline
 
 
-def run(engine_1: dict, engine_2: dict, raw_event: dict) -> dict:
+def build_correlation_block(
+    es: Elasticsearch,
+    pivot_ip: str | None = None,
+    pivot_user: str | None = None,
+    pivot_host: str | None = None,
+    pivot_dest_ip: str | None = None,
+) -> dict:
     """
-    Run Engine 3: event correlation + timeline construction.
+    Full Engine 3 pipeline:
+      1. Run Time-Machine correlation query across all pivot axes
+      2. Build attack timeline
+      3. Return raw correlated evidence for the LLM
 
-    Args:
-        engine_1  : Output from anomaly_orchestrator.run()
-        engine_2  : Output from intel_orchestrator.run() (can be empty dict if skipped)
-        raw_event : Original normalized log event.
-
-    Returns engine_3_correlation block:
-        {
-          "linked_events":  list[dict],
-          "event_count":    int,
-          "attack_timeline":list[dict],
-        }
+    Returns the `engine_3_correlation` dict:
+      {
+        "event_count": int,
+        "attack_timeline": [...],
+        "correlated_evidence": [...]   ← raw ES docs for the LLM
+      }
     """
-    logger.debug("Engine 3 starting")
+    correlated = correlate_events(
+        es,
+        pivot_ip=pivot_ip,
+        pivot_user=pivot_user,
+        pivot_host=pivot_host,
+        pivot_dest_ip=pivot_dest_ip,
+    )
+    timeline = build_attack_timeline(correlated)
 
-    linked = event_linker.link(engine_1, engine_2, raw_event)
-    timeline = timeline_builder.build(raw_event, linked)
-
-    result = {
-        "linked_events":   linked,
-        "event_count":     len(linked),
-        "attack_timeline": timeline,
+    return {
+        "event_count":         len(correlated),
+        "attack_timeline":     timeline,
+        "correlated_evidence": correlated,
     }
-
-    logger.debug("Engine 3 done — %d linked events, %d timeline entries",
-                 len(linked), len(timeline))
-    return result

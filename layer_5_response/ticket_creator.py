@@ -41,6 +41,8 @@ def generate_soc_ticket(incident_data: Dict, actions_taken: List[Dict], recommen
     timestamp = datetime.datetime.now().isoformat()
 
     # Construct the ticket dictionary
+    dora_compliance = incident_data.get("dora_compliance")
+    
     ticket = {
         "ticket_id": ticket_id,
         "timestamp": timestamp,
@@ -53,8 +55,14 @@ def generate_soc_ticket(incident_data: Dict, actions_taken: List[Dict], recommen
         "status": status,
         "actions_taken": actions_taken,
         "recommendations": recommendations,
-        "playbook_path": playbook_path
+        "playbook_path": playbook_path,
+        "dora_compliance": dora_compliance
     }
+
+    if dora_compliance:
+        article_18 = dora_compliance.get("article_18_classification", {})
+        if article_18.get("is_major_incident"):
+            ticket["regulatory_flag"] = "REGULATORY_ESCALATION_REQUIRED"
 
     # Define the file path
     file_name = f"{ticket_id}.json"
@@ -64,5 +72,5 @@ def generate_soc_ticket(incident_data: Dict, actions_taken: List[Dict], recommen
     with open(file_path, 'w') as f:
         json.dump(ticket, f, indent=2)
 
-    print(f"📄 Ticket generated: {file_path}")
+    print(f"[L5-RESPONSE] Ticket generated: {file_path}")
     return file_path

@@ -1,175 +1,55 @@
-"""
-mitre_mapper.py
----------------
-Maps IOC matches and UEBA flags to MITRE ATT&CK tactics and techniques.
+# mitre_mapper.py
+# Location: layer_2_detection/engine_2_threat_intel/mitre_mapper.py
+# ─────────────────────────────────────────────────────────────────
+# Maps rule IDs from the Rules Engine to their MITRE ATT&CK
+# Tactic / Technique / Technique Name for downstream enrichment.
+# ─────────────────────────────────────────────────────────────────
 
-Priority order:
-1) Direct MITRE technique from raw event (highest confidence)
-2) IOC matches
-3) UEBA behavioural flags
-4) Static fallback map
-"""
+MITRE_MAP: dict[str, dict] = {
+    # ── Web Attacks ──────────────────────────────────────────
+    "WEB_SQLI":        {"tactic": "Initial Access",      "technique": "T1190",      "name": "Exploit Public-Facing Application"},
+    "WEB_CMDI":        {"tactic": "Execution",            "technique": "T1059",      "name": "Command and Scripting Interpreter"},
+    "WEB_LFI":         {"tactic": "Initial Access",      "technique": "T1190",      "name": "Exploit Public-Facing Application"},
+    "WEB_XSS":         {"tactic": "Initial Access",      "technique": "T1189",      "name": "Drive-by Compromise"},
+    "WEB_SCANNER":     {"tactic": "Reconnaissance",      "technique": "T1595.002",  "name": "Vulnerability Scanning"},
+    "WEB_SSRF":        {"tactic": "Initial Access",      "technique": "T1190",      "name": "Exploit Public-Facing Application"},
 
-import logging
-import sys
-import os
+    # ── Auth Attacks ─────────────────────────────────────────
+    "AUTH_BRUTEFORCE":     {"tactic": "Credential Access",   "technique": "T1110",      "name": "Brute Force"},
+    "AUTH_SPRAY":          {"tactic": "Credential Access",   "technique": "T1110.003",  "name": "Password Spraying"},
+    "AUTH_MFA_FATIGUE":    {"tactic": "Credential Access",   "technique": "T1621",      "name": "Multi-Factor Authentication Request Generation"},
+    "AUTH_PRIV_ABUSE":     {"tactic": "Privilege Escalation","technique": "T1078",      "name": "Valid Accounts"},
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "ioc_database"))
+    # ── Endpoint Attacks ─────────────────────────────────────
+    "EP_RANSOMWARE":       {"tactic": "Impact",             "technique": "T1486",      "name": "Data Encrypted for Impact"},
+    "EP_LOLBIN":           {"tactic": "Execution",          "technique": "T1059.001",  "name": "PowerShell"},
+    "EP_CREDENTIAL_DUMP":  {"tactic": "Credential Access",  "technique": "T1003",      "name": "OS Credential Dumping"},
+    "EP_DEF_EVASION":      {"tactic": "Defense Evasion",    "technique": "T1070.001",  "name": "Clear Windows Event Logs"},
+    "EP_PERSISTENCE":      {"tactic": "Persistence",        "technique": "T1547.001",  "name": "Registry Run Keys / Startup Folder"},
 
-from ioc_db import lookup_mitre, DEFAULT_DB_PATH
-
-logger = logging.getLogger(__name__)
-
-# ──────────────────────────────────────────────────────────────
-# Static fallback mapping if DB lookup fails
-# ──────────────────────────────────────────────────────────────
-
-_FALLBACK_MAP = {
-
-    "malicious_ip": ("T1071", "Command and Control", "App Layer Protocol"),
-    "suspicious_domain": ("T1071", "Command and Control", "App Layer Protocol"),
-
-    "malicious_file_hash": ("T1059", "Execution", "Command and Scripting"),
-    "suspicious_process": ("T1059", "Execution", "Command and Scripting"),
-
-    "off_hours_activity": ("T1078", "Defense Evasion", "Valid Accounts"),
-
-    "excessive_failed_logins": ("T1110", "Credential Access", "Brute Force"),
-
-    "lateral_movement_indicator": ("T1021", "Lateral Movement", "Remote Services"),
-
-    "privilege_escalation": (
-        "T1068",
-        "Privilege Escalation",
-        "Exploitation for Privilege Escalation"
-    ),
-
-    "suspicious_process_chain": ("T1059", "Execution", "Command and Scripting"),
-
-    "large_data_transfer": ("T1041", "Exfiltration", "Exfiltration Over C2 Channel"),
-
-    "impossible_travel": ("T1078", "Defense Evasion", "Valid Accounts"),
+    # ── Network Attacks ──────────────────────────────────────
+    "NET_PORTSCAN":        {"tactic": "Discovery",          "technique": "T1046",      "name": "Network Service Discovery"},
+    "NET_C2_BEACON":       {"tactic": "Command and Control","technique": "T1071.001",  "name": "Web Protocols"},
+    "NET_DNS_TUNNEL":      {"tactic": "Command and Control","technique": "T1071.004",  "name": "DNS"},
+    "NET_EXFIL":           {"tactic": "Exfiltration",       "technique": "T1048",      "name": "Exfiltration Over Alternative Protocol"},
+    "NET_LATERAL":         {"tactic": "Lateral Movement",   "technique": "T1021",      "name": "Remote Services"},
 }
 
 
-# ──────────────────────────────────────────────────────────────
-# Main mapper
-# ──────────────────────────────────────────────────────────────
-
-def map_to_mitre(
-        ioc_matches: list[str],
-        ueba_flags: list[str],
-        db_path: str = DEFAULT_DB_PATH,
-        raw_event: dict | None = None
-    ) -> dict:
-
-    # ──────────────────────────────────────────────────────────
-    # STEP 1 — direct MITRE technique from event
-    # ──────────────────────────────────────────────────────────
-
-    if raw_event:
-
-        technique = raw_event.get("mitre_technique")
-
-        if technique:
-
-            db_hits = lookup_mitre(keyword=technique, db_path=db_path)
-
-            if db_hits:
-
-                hit = db_hits[0]
-
-                return {
-                    "mitre_tactic": hit["tactic"],
-                    "mitre_technique": hit["technique_id"],
-                    "mitre_technique_name": hit["technique_name"],
-                    "all_techniques": [
-                        {
-                            "technique_id": hit["technique_id"],
-                            "technique_name": hit["technique_name"],
-                            "tactic": hit["tactic"],
-                            "signal": "direct_event_mapping"
-                        }
-                    ]
-                }
-
-    # ──────────────────────────────────────────────────────────
-    # STEP 2 — combine IOC + UEBA signals
-    # ──────────────────────────────────────────────────────────
-
-    all_signals = list(dict.fromkeys(ioc_matches + ueba_flags))
-
-    if not all_signals:
+def get_mitre_mapping(rule_id: str) -> dict:
+    """
+    Returns the MITRE ATT\u0026CK enrichment dict for a given rule_id.
+    Falls back to 'Unknown' if the rule is not in the map.
+    """
+    mapping = MITRE_MAP.get(rule_id)
+    if mapping:
         return {
-            "mitre_tactic": "Unknown",
-            "mitre_technique": "T0000",
-            "mitre_technique_name": "Unknown",
-            "all_techniques": []
+            "mitre_tactic":         mapping["tactic"],
+            "mitre_technique":      mapping["technique"],
+            "mitre_technique_name": mapping["name"],
         }
-
-    found_techniques = []
-
-    # ──────────────────────────────────────────────────────────
-    # STEP 3 — database lookup
-    # ──────────────────────────────────────────────────────────
-
-    for signal in all_signals:
-
-        db_hits = lookup_mitre(
-            keyword=signal.replace("_", " "),
-            db_path=db_path
-        )
-
-        if db_hits:
-
-            for hit in db_hits:
-
-                entry = {
-                    "technique_id": hit["technique_id"],
-                    "technique_name": hit["technique_name"],
-                    "tactic": hit["tactic"],
-                    "signal": signal
-                }
-
-                if entry not in found_techniques:
-                    found_techniques.append(entry)
-
-        # ──────────────────────────────────────────────────────
-        # STEP 4 — fallback mapping
-        # ──────────────────────────────────────────────────────
-
-        elif signal in _FALLBACK_MAP:
-
-            tid, tactic, tname = _FALLBACK_MAP[signal]
-
-            entry = {
-                "technique_id": tid,
-                "technique_name": tname,
-                "tactic": tactic,
-                "signal": signal
-            }
-
-            if entry not in found_techniques:
-                found_techniques.append(entry)
-
-    if not found_techniques:
-        return {
-            "mitre_tactic": "Unknown",
-            "mitre_technique": "T0000",
-            "mitre_technique_name": "Unknown",
-            "all_techniques": []
-        }
-
-    # ──────────────────────────────────────────────────────────
-    # STEP 5 — choose primary technique
-    # IOC > UEBA priority
-    # ──────────────────────────────────────────────────────────
-
-    primary = found_techniques[0]
-
     return {
-        "mitre_tactic": primary["tactic"],
-        "mitre_technique": primary["technique_id"],
-        "mitre_technique_name": primary["technique_name"],
-        "all_techniques": found_techniques
+        "mitre_tactic":         "Unknown",
+        "mitre_technique":      "Unknown",
+        "mitre_technique_name": "Unknown",
     }

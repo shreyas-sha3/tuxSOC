@@ -1,89 +1,58 @@
-"""
-intel_orchestrator.py
----------------------
-Engine 2 orchestrator. Coordinates ioc_matcher and mitre_mapper,
-combines outputs into the engine_2_threat_intel block.
+# intel_orchestrator.py
+# Location: layer_2_detection/engine_2_threat_intel/intel_orchestrator.py
+# ─────────────────────────────────────────────────────────────────
+# Thin orchestration wrapper. Given a raw ES hit, runs IOC matching
+# and MITRE mapping, returning the full engine_2_threat_intel block.
+# ─────────────────────────────────────────────────────────────────
 
-Only called by detection_orchestrator if anomaly_score >= threshold.
-"""
+from __future__ import annotations
+from typing import Optional
+from elasticsearch import Elasticsearch
 
-import logging
-import sys
-import os
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../ioc_database"))
-
-import ioc_matcher
-import mitre_mapper
-from ioc_db import DEFAULT_DB_PATH
-
-logger = logging.getLogger(__name__)
+from layer_2_detection.engine_2_threat_intel.ioc_matcher import match_iocs
+from layer_2_detection.engine_2_threat_intel.mitre_mapper import get_mitre_mapping
 
 
-def run(raw_event: dict,
-        log_type: str,
-        anomaly_score: float,
-        ueba_flags: list[str],
-        db_path: str = DEFAULT_DB_PATH) -> dict:
+def enrich_threat_intel(
+    raw_event: dict,
+    rule_id: str,
+    es_client: Optional[Elasticsearch] = None,
+) -> dict:
     """
-    Run Engine 2: IOC matching + MITRE mapping.
+    Produces the `engine_2_threat_intel` block for a single event.
 
-    Args:
-        raw_event     : Normalized event fields
-        log_type      : 'endpoint' | 'network' | 'iot' | 'auth' | 'firewall'
-        anomaly_score : From Engine 1
-        ueba_flags    : UEBA behavioural flags
-        db_path       : SQLite DB path
+    Parameters
+    ----------
+    raw_event : dict
+        The normalised raw_event dict (source_ip, destination_ip, …).
+    rule_id : str
+        The detection rule that fired (e.g. "WEB_SQLI", "AUTH_BRUTEFORCE").
+    es_client : Elasticsearch, optional
+        Live ES client for IOC feed look-ups.
 
-    Returns engine_2_threat_intel block:
+    Returns
+    -------
+    dict
+        A dict matching the Layer 3 contract:
         {
-          "ioc_matches": list[str],
-          "matched_ioc_details": list[dict],
-          "iot_threshold_hits": list[dict],
-          "threat_intel_match": bool,
-
-          "mitre_tactic": str,
-          "mitre_technique": str,
-          "mitre_technique_name": str,
-          "all_techniques": list
+            "ioc_matches": [...],
+            "threat_intel_match": bool,
+            "mitre_tactic": str,
+            "mitre_technique": str,
+            "mitre_technique_name": str,
         }
     """
-
-    logger.debug("Engine 2 starting for log_type=%s", log_type)
-
-    # STEP 1 — IOC matching
-    match_result = ioc_matcher.match(
-        raw_event=raw_event,
-        log_type=log_type,
-        anomaly_score=anomaly_score,
-        db_path=db_path
+    # IOC enrichment
+    ioc_result = match_iocs(
+        source_ip=raw_event.get("source_ip"),
+        destination_ip=raw_event.get("destination_ip"),
+        es_client=es_client,
     )
 
-    # STEP 2 — MITRE mapping (IOC signals + UEBA signals)
-    mitre_result = mitre_mapper.map_to_mitre(
-        ioc_matches=match_result.get("ioc_matches", []),
-        ueba_flags=ueba_flags,
-        db_path=db_path,
-        raw_event=raw_event
-    )
+    # MITRE mapping
+    mitre = get_mitre_mapping(rule_id)
 
-    # STEP 3 — Merge results
-    result = {
-        "ioc_matches": match_result.get("ioc_matches", []),
-        "matched_ioc_details": match_result.get("matched_ioc_details", []),
-        "iot_threshold_hits": match_result.get("iot_threshold_hits", []),
-        "threat_intel_match": match_result.get("threat_intel_match", False),
-
-        "mitre_tactic": mitre_result.get("mitre_tactic"),
-        "mitre_technique": mitre_result.get("mitre_technique"),
-        "mitre_technique_name": mitre_result.get("mitre_technique_name"),
-        "all_techniques": mitre_result.get("all_techniques", [])
+    return {
+        **ioc_result,
+        **mitre,
     }
-
-    logger.debug(
-        "Engine 2 complete — IOC=%s MITRE=%s",
-        result["ioc_matches"],
-        result["mitre_technique"]
-    )
-
-    return result

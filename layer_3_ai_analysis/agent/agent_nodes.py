@@ -23,13 +23,13 @@ def analyze_incident_master(state: dict) -> dict:
         or incident.get("id")
         or "UNKNOWN"
     )
-    print(f"🧠 [NODE 1] Analyzing Event {event_id}...")
+    print(f"[L3-AI] [NODE 1] Analyzing Event {event_id}...")
 
     # Pass the lean incident dict directly — no CIS cleaning, no cloning
     prompt = build_batch_analysis_prompt(incident)
     result = run_inference(prompt)
 
-    print(f"🔍 RAW AI OUTPUT: {result['response']}")
+    print(f"[L3-AI] RAW AI OUTPUT: {result['response']}")
 
     
     if not result["success"]:
@@ -116,8 +116,8 @@ def finalize_and_validate(state: dict) -> dict:
     missing = [f for f in required if not state.get(f)]
 
     if not missing:
-        print("✅ [SUCCESS] AI Analysis Validated.")
+        print("[L3-AI] SUCCESS: AI Analysis Validated.")
         return {"validation_passed": True}
 
-    print(f"❌ [CRITICAL] Validation failed. Missing: {missing}")
+    print(f"[L3-AI] CRITICAL: Validation failed. Missing: {missing}")
     return {"validation_passed": False, "ai_failed": True}
