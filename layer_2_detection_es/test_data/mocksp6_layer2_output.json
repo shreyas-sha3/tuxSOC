@@ -1,0 +1,430 @@
+[
+  {
+    "incident_id": "INC-FDECE496",
+    "created_at": "2026-03-28T22:42:53.486428+00:00",
+    "severity": "critical",
+    "risk_score": 1.0,
+    "confidence": 0.999,
+    "incident_summary": "large outbound data transfer from 10.0.10.5. targeting 52.216.146.19.",
+    "entities": {
+      "source_ip": "10.0.10.5",
+      "destination_ip": "52.216.146.19"
+    },
+    "mitre_attack": [
+      {
+        "technique": "T1078",
+        "name": "Valid Accounts",
+        "tactic": "Defense Evasion"
+      },
+      {
+        "technique": "T1041",
+        "name": "Exfiltration Over C2 Channel",
+        "tactic": "Exfiltration"
+      },
+      {
+        "technique": "T1048",
+        "name": "Exfiltration Over Alternative Protocol",
+        "tactic": "Exfiltration"
+      }
+    ],
+    "detections": [
+      {
+        "type": "data_exfiltration_detected",
+        "source_ip": "10.0.10.5",
+        "outbound_mb": 143051.15
+      },
+      {
+        "type": "large_exfil_detected",
+        "source_ip": "10.0.10.5",
+        "dest_ip": "52.216.146.19",
+        "outbound_gb": 139.7,
+        "mitre": "T1048"
+      }
+    ],
+    "attack_types": [
+      "data_exfiltration_detected",
+      "large_exfil_detected"
+    ],
+    "attack_chain": null,
+    "attack_timeline": [
+      {
+        "timestamp": "2026-03-27T02:10:00+00:00",
+        "event": "network_event",
+        "entity": "10.0.10.5",
+        "detail": "10.0.10.5 \u2192 network_connection \u2192 52.216.146.19"
+      },
+      {
+        "timestamp": "2026-03-27T02:10:00+00:00",
+        "event": "data_transfer",
+        "entity": "10.0.10.5",
+        "detail": "143051.15 MB outbound from 10.0.10.5 to 52.216.146.19"
+      },
+      {
+        "timestamp": "2026-03-27T02:10:00Z",
+        "event": "data_exfiltration_detected",
+        "detail": "source_ip=10.0.10.5 | outbound_mb=143051.15"
+      },
+      {
+        "timestamp": "2026-03-27T02:10:00Z",
+        "event": "large_exfil_detected",
+        "detail": "source_ip=10.0.10.5 | dest_ip=52.216.146.19 | outbound_gb=139.7 | mitre=T1048"
+      },
+      {
+        "timestamp": "2026-03-27T02:15:00+00:00",
+        "event": "network_event",
+        "entity": "10.0.10.5",
+        "detail": "10.0.10.5 \u2192 network_connection \u2192 198.51.100.45"
+      },
+      {
+        "timestamp": "2026-03-27T02:15:00+00:00",
+        "event": "data_transfer",
+        "entity": "10.0.10.5",
+        "detail": "0.02 MB outbound from 10.0.10.5 to 198.51.100.45"
+      }
+    ],
+    "linked_events": [
+      {
+        "log_id": "LOG005",
+        "timestamp": "2026-03-27T02:10:00Z",
+        "source": "zeek",
+        "src_ip": "10.0.10.5",
+        "dest_ip": "52.216.146.19",
+        "dest_port": 443,
+        "service": "ssl",
+        "duration": 3600,
+        "orig_bytes": 150000000000,
+        "resp_bytes": 50000,
+        "source_ip": "10.0.10.5",
+        "destination_ip": "52.216.146.19",
+        "action": "network_connection",
+        "bytes_out": 150000000000
+      },
+      {
+        "log_id": "LOG006",
+        "timestamp": "2026-03-27T02:15:00Z",
+        "source": "zeek",
+        "src_ip": "10.0.10.5",
+        "dest_ip": "198.51.100.45",
+        "dest_port": 443,
+        "service": "ssl",
+        "orig_bytes": 20000,
+        "resp_bytes": 18000,
+        "source_ip": "10.0.10.5",
+        "destination_ip": "198.51.100.45",
+        "action": "network_connection",
+        "bytes_out": 20000
+      }
+    ],
+    "event_count": 2,
+    "ioc_matches": []
+  },
+  {
+    "incident_id": "INC-CF68BCF3",
+    "created_at": "2026-03-28T22:42:53.486222+00:00",
+    "severity": "medium",
+    "risk_score": 0.519,
+    "confidence": 0.977,
+    "incident_summary": "living-off-the-land binary abuse by BANKLOCAL\\svc_jenkins. suspicious command execution by BANKLOCAL\\svc_jenkins.",
+    "entities": {
+      "user": "BANKLOCAL\\svc_jenkins"
+    },
+    "mitre_attack": [
+      {
+        "technique": "T1078",
+        "name": "Valid Accounts",
+        "tactic": "Defense Evasion"
+      },
+      {
+        "technique": "T1218",
+        "name": "Signed Binary Proxy Execution",
+        "tactic": "Defense Evasion"
+      },
+      {
+        "technique": "T1059",
+        "name": "Command and Scripting Interpreter",
+        "tactic": "Execution"
+      }
+    ],
+    "detections": [
+      {
+        "type": "lolbin_abuse",
+        "user": "BANKLOCAL\\svc_jenkins",
+        "host": "",
+        "source_ip": "",
+        "pattern": "-executionpolicy bypass",
+        "command": "powershell.exe -ExecutionPolicy Bypass -File C:\\\\IT_Ops\\\\Scripts\\\\Nightly-CloudBackup.ps1",
+        "mitre": "T1218"
+      },
+      {
+        "type": "suspicious_command_execution",
+        "user": "BANKLOCAL\\svc_jenkins",
+        "host": "",
+        "source_ip": "",
+        "pattern": "powershell",
+        "command": "powershell Get-Date",
+        "mitre": "T1059"
+      }
+    ],
+    "attack_types": [
+      "suspicious_command_execution",
+      "lolbin_abuse"
+    ],
+    "attack_chain": null,
+    "attack_timeline": [
+      {
+        "timestamp": "2026-03-27T02:00:15+00:00",
+        "event": "network_event",
+        "entity": "BANKLOCAL\\svc_jenkins",
+        "detail": "process_execution (user: BANKLOCAL\\svc_jenkins)"
+      },
+      {
+        "timestamp": "2026-03-27T02:00:15+00:00",
+        "event": "command_execution",
+        "entity": "BANKLOCAL\\svc_jenkins",
+        "detail": "Command: powershell.exe -ExecutionPolicy Bypass -File C:\\\\IT_Ops\\\\Scripts\\\\Nightly-CloudBackup.ps1 (user: BANKLOCAL\\svc_jenkins)"
+      },
+      {
+        "timestamp": "2026-03-27T02:00:15Z",
+        "event": "lolbin_abuse",
+        "detail": "user=BANKLOCAL\\svc_jenkins | host= | source_ip= | pattern=-executionpolicy bypass | command=powershell.exe -ExecutionPolicy Bypass -File C:\\\\IT_Ops\\\\Scripts\\\\Nightly-CloudBackup.ps1 | mitre=T1218"
+      },
+      {
+        "timestamp": "2026-03-27T02:02:00+00:00",
+        "event": "network_event",
+        "entity": "BANKLOCAL\\svc_jenkins",
+        "detail": "process_execution (user: BANKLOCAL\\svc_jenkins)"
+      },
+      {
+        "timestamp": "2026-03-27T02:02:00+00:00",
+        "event": "command_execution",
+        "entity": "BANKLOCAL\\svc_jenkins",
+        "detail": "Command: powershell Get-Date (user: BANKLOCAL\\svc_jenkins)"
+      },
+      {
+        "timestamp": "2026-03-27T02:02:00Z",
+        "event": "suspicious_command_execution",
+        "detail": "user=BANKLOCAL\\svc_jenkins | host= | source_ip= | pattern=powershell | command=powershell Get-Date | mitre=T1059"
+      },
+      {
+        "timestamp": "2026-03-27T02:05:00+00:00",
+        "event": "network_event",
+        "entity": "BANKLOCAL\\svc_jenkins",
+        "detail": "process_execution (user: BANKLOCAL\\svc_jenkins)"
+      },
+      {
+        "timestamp": "2026-03-27T02:05:00+00:00",
+        "event": "command_execution",
+        "entity": "BANKLOCAL\\svc_jenkins",
+        "detail": "Command: vssadmin.exe delete shadows /for=c: /oldest (user: BANKLOCAL\\svc_jenkins)"
+      },
+      {
+        "timestamp": "2026-03-27T02:05:00Z",
+        "event": "lolbin_abuse",
+        "detail": "user=BANKLOCAL\\svc_jenkins | host= | source_ip= | pattern=vssadmin | command=vssadmin.exe delete shadows /for=c: /oldest | mitre=T1218"
+      }
+    ],
+    "linked_events": [
+      {
+        "log_id": "LOG002",
+        "timestamp": "2026-03-27T02:00:15Z",
+        "source": "sysmon",
+        "EventID": 1,
+        "Image": "C:\\\\Windows\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe",
+        "CommandLine": "powershell.exe -ExecutionPolicy Bypass -File C:\\\\IT_Ops\\\\Scripts\\\\Nightly-CloudBackup.ps1",
+        "User": "BANKLOCAL\\\\svc_jenkins",
+        "ParentImage": "C:\\\\Program Files\\\\Jenkins\\\\jenkins.exe",
+        "user": "BANKLOCAL\\svc_jenkins",
+        "affected_user": "BANKLOCAL\\svc_jenkins",
+        "action": "process_execution",
+        "command_line": "powershell.exe -ExecutionPolicy Bypass -File C:\\\\IT_Ops\\\\Scripts\\\\Nightly-CloudBackup.ps1"
+      },
+      {
+        "log_id": "LOG003",
+        "timestamp": "2026-03-27T02:02:00Z",
+        "source": "sysmon",
+        "EventID": 1,
+        "Image": "powershell.exe",
+        "CommandLine": "powershell Get-Date",
+        "User": "BANKLOCAL\\\\svc_jenkins",
+        "user": "BANKLOCAL\\svc_jenkins",
+        "affected_user": "BANKLOCAL\\svc_jenkins",
+        "action": "process_execution",
+        "command_line": "powershell Get-Date"
+      },
+      {
+        "log_id": "LOG004",
+        "timestamp": "2026-03-27T02:05:00Z",
+        "source": "sysmon",
+        "EventID": 1,
+        "Image": "C:\\\\Windows\\\\System32\\\\vssadmin.exe",
+        "CommandLine": "vssadmin.exe delete shadows /for=c: /oldest",
+        "User": "BANKLOCAL\\\\svc_jenkins",
+        "ParentImage": "powershell.exe",
+        "user": "BANKLOCAL\\svc_jenkins",
+        "affected_user": "BANKLOCAL\\svc_jenkins",
+        "action": "process_execution",
+        "command_line": "vssadmin.exe delete shadows /for=c: /oldest"
+      }
+    ],
+    "event_count": 3,
+    "ioc_matches": []
+  },
+  {
+    "incident_id": "INC-55DA4FAF",
+    "created_at": "2026-03-28T22:42:53.234390+00:00",
+    "severity": "info",
+    "risk_score": 0.169,
+    "confidence": 0.127,
+    "incident_summary": "Suspicious activity detected from unknown actor.",
+    "entities": {},
+    "mitre_attack": [
+      {
+        "technique": "T1078",
+        "name": "Valid Accounts",
+        "tactic": "Defense Evasion"
+      }
+    ],
+    "detections": [],
+    "attack_types": [],
+    "attack_chain": null,
+    "attack_timeline": [],
+    "linked_events": [
+      {
+        "log_id": "LOG007",
+        "timestamp": "2026-03-27T03:05:10Z",
+        "source": "sysmon",
+        "EventID": 11,
+        "Image": "C:\\\\Program Files\\\\EnterpriseBackup\\\\backup_agent.exe",
+        "TargetFilename": "E:\\\\Local_Archives\\\\Finance_Data_20260327.aes256",
+        "action": "file_created"
+      }
+    ],
+    "event_count": 1,
+    "ioc_matches": [],
+    "risk_breakdown": {
+      "anomaly_component": 0.169,
+      "intel_component": 0.0,
+      "correlation_component": 0.0,
+      "chain_component": 0.0,
+      "graph_component": 0.0
+    }
+  },
+  {
+    "incident_id": "INC-0E7E0955",
+    "created_at": "2026-03-28T22:42:53.414811+00:00",
+    "severity": "info",
+    "risk_score": 0.169,
+    "confidence": 0.127,
+    "incident_summary": "Suspicious activity detected from SYSTEM.",
+    "entities": {
+      "user": "SYSTEM"
+    },
+    "mitre_attack": [
+      {
+        "technique": "T1078",
+        "name": "Valid Accounts",
+        "tactic": "Defense Evasion"
+      }
+    ],
+    "detections": [],
+    "attack_types": [],
+    "attack_chain": null,
+    "attack_timeline": [
+      {
+        "timestamp": "2026-03-27T03:06:00+00:00",
+        "event": "network_event",
+        "entity": "SYSTEM",
+        "detail": "process_execution (user: SYSTEM)"
+      },
+      {
+        "timestamp": "2026-03-27T03:06:00+00:00",
+        "event": "command_execution",
+        "entity": "SYSTEM",
+        "detail": "Command: backup_agent.exe --verify (user: SYSTEM)"
+      }
+    ],
+    "linked_events": [
+      {
+        "log_id": "LOG008",
+        "timestamp": "2026-03-27T03:06:00Z",
+        "source": "sysmon",
+        "EventID": 1,
+        "Image": "backup_agent.exe",
+        "CommandLine": "backup_agent.exe --verify",
+        "User": "SYSTEM",
+        "user": "SYSTEM",
+        "affected_user": "SYSTEM",
+        "action": "process_execution",
+        "command_line": "backup_agent.exe --verify"
+      }
+    ],
+    "event_count": 1,
+    "ioc_matches": [],
+    "risk_breakdown": {
+      "anomaly_component": 0.169,
+      "intel_component": 0.0,
+      "correlation_component": 0.0,
+      "chain_component": 0.0,
+      "graph_component": 0.0
+    }
+  },
+  {
+    "incident_id": "INC-BAC24520",
+    "created_at": "2026-03-28T22:42:51.844500+00:00",
+    "severity": "info",
+    "risk_score": 0.168,
+    "confidence": 0.126,
+    "incident_summary": "Suspicious activity detected from 10.0.20.10.",
+    "entities": {
+      "source_ip": "10.0.20.10",
+      "user": "it.admin"
+    },
+    "mitre_attack": [
+      {
+        "technique": "T1078",
+        "name": "Valid Accounts",
+        "tactic": "Defense Evasion"
+      }
+    ],
+    "detections": [],
+    "attack_types": [],
+    "attack_chain": null,
+    "attack_timeline": [
+      {
+        "timestamp": "2026-03-27T01:55:00+00:00",
+        "event": "network_event",
+        "entity": "10.0.20.10",
+        "detail": "10.0.20.10 \u2192 login_success (user: it.admin)"
+      },
+      {
+        "timestamp": "2026-03-27T01:55:00+00:00",
+        "event": "login_success",
+        "entity": "it.admin",
+        "detail": "Successful login by it.admin from 10.0.20.10"
+      }
+    ],
+    "linked_events": [
+      {
+        "log_id": "LOG001",
+        "timestamp": "2026-03-27T01:55:00Z",
+        "source": "windows_security",
+        "EventID": 4624,
+        "user": "it.admin",
+        "logon_type": 2,
+        "src_ip": "10.0.20.10",
+        "source_ip": "10.0.20.10",
+        "affected_user": "it.admin",
+        "action": "login_success"
+      }
+    ],
+    "event_count": 1,
+    "ioc_matches": [],
+    "risk_breakdown": {
+      "anomaly_component": 0.168,
+      "intel_component": 0.0,
+      "correlation_component": 0.0,
+      "chain_component": 0.0,
+      "graph_component": 0.0
+    }
+  }
+]

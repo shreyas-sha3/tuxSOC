@@ -1,0 +1,290 @@
+[
+  {
+    "incident_id": "INC-04D47CF3",
+    "created_at": "2026-03-28T22:42:43.961215+00:00",
+    "severity": "info",
+    "risk_score": 0.161,
+    "confidence": 0.121,
+    "incident_summary": "Suspicious activity detected from 10.0.20.15.",
+    "entities": {
+      "source_ip": "10.0.20.15",
+      "user": "finance_mgr@bank.local"
+    },
+    "mitre_attack": [],
+    "detections": [],
+    "attack_types": [],
+    "attack_chain": null,
+    "attack_timeline": [
+      {
+        "timestamp": "2026-03-27T10:52:10+00:00",
+        "event": "network_event",
+        "entity": "10.0.20.15",
+        "detail": "10.0.20.15 \u2192 login (user: finance_mgr@bank.local)"
+      },
+      {
+        "timestamp": "2026-03-27T10:55:00+00:00",
+        "event": "network_event",
+        "entity": "10.0.20.15",
+        "detail": "10.0.20.15 \u2192 MailItemsAccessed (user: finance_mgr@bank.local)"
+      },
+      {
+        "timestamp": "2026-03-27T11:00:00+00:00",
+        "event": "network_event",
+        "entity": "193.168.0.50",
+        "detail": "193.168.0.50 \u2192 login (user: finance_mgr@bank.local)"
+      },
+      {
+        "timestamp": "2026-03-27T11:05:00+00:00",
+        "event": "network_event",
+        "entity": "193.168.0.50",
+        "detail": "193.168.0.50 \u2192 New-InboxRule (user: finance_mgr@bank.local)"
+      },
+      {
+        "timestamp": "2026-03-27T11:10:00+00:00",
+        "event": "network_event",
+        "entity": "193.168.0.50",
+        "detail": "193.168.0.50 \u2192 MailItemsAccessed (user: finance_mgr@bank.local)"
+      },
+      {
+        "timestamp": "2026-03-27T11:15:00+00:00",
+        "event": "network_event",
+        "entity": "193.168.0.50",
+        "detail": "193.168.0.50 \u2192 file_access (user: finance_mgr@bank.local)"
+      },
+      {
+        "timestamp": "2026-03-27T11:16:30+00:00",
+        "event": "network_event",
+        "entity": "10.0.20.15",
+        "detail": "10.0.20.15 \u2192 file_access (user: finance_mgr@bank.local)"
+      },
+      {
+        "timestamp": "2026-03-27T11:20:00+00:00",
+        "event": "network_event",
+        "entity": "193.168.0.50",
+        "detail": "193.168.0.50 \u2192 Send (user: finance_mgr@bank.local)"
+      }
+    ],
+    "linked_events": [
+      {
+        "log_id": "LOG001",
+        "timestamp": "2026-03-27T10:52:10Z",
+        "source": "azure_ad",
+        "OperationName": "Sign-in activity",
+        "UserPrincipalName": "finance_mgr@bank.local",
+        "IpAddress": "10.0.20.15",
+        "Location": "Pune, IN",
+        "RiskState": "none",
+        "ClientAppUsed": "Outlook",
+        "source_ip": "10.0.20.15",
+        "user": "finance_mgr@bank.local",
+        "affected_user": "finance_mgr@bank.local",
+        "action": "login"
+      },
+      {
+        "log_id": "LOG002",
+        "timestamp": "2026-03-27T10:55:00Z",
+        "source": "office365",
+        "Operation": "MailItemsAccessed",
+        "UserId": "finance_mgr@bank.local",
+        "ClientIP": "10.0.20.15",
+        "source_ip": "10.0.20.15",
+        "user": "finance_mgr@bank.local",
+        "affected_user": "finance_mgr@bank.local",
+        "action": "MailItemsAccessed"
+      },
+      {
+        "log_id": "LOG003",
+        "timestamp": "2026-03-27T11:00:00Z",
+        "source": "azure_ad",
+        "OperationName": "Sign-in activity",
+        "UserPrincipalName": "finance_mgr@bank.local",
+        "IpAddress": "193.168.0.50",
+        "Location": "Moscow, RU",
+        "RiskState": "atRisk",
+        "RiskLevel": "high",
+        "RiskEventTypes": "unfamiliarFeatures, suspiciousIPAddress",
+        "ClientAppUsed": "Browser",
+        "source_ip": "193.168.0.50",
+        "user": "finance_mgr@bank.local",
+        "affected_user": "finance_mgr@bank.local",
+        "action": "login"
+      },
+      {
+        "log_id": "LOG005",
+        "timestamp": "2026-03-27T11:05:00Z",
+        "source": "office365",
+        "Operation": "New-InboxRule",
+        "UserId": "finance_mgr@bank.local",
+        "ClientIP": "193.168.0.50",
+        "Parameters": {
+          "Name": "Standard Processing",
+          "ForwardTo": "external.audit.finance@gmail.com",
+          "SubjectContainsWords": [
+            "invoice",
+            "wire transfer"
+          ],
+          "DeleteMessage": true
+        },
+        "source_ip": "193.168.0.50",
+        "user": "finance_mgr@bank.local",
+        "affected_user": "finance_mgr@bank.local",
+        "action": "New-InboxRule"
+      },
+      {
+        "log_id": "LOG007",
+        "timestamp": "2026-03-27T11:10:00Z",
+        "source": "office365",
+        "Operation": "MailItemsAccessed",
+        "UserId": "finance_mgr@bank.local",
+        "ClientIP": "193.168.0.50",
+        "source_ip": "193.168.0.50",
+        "user": "finance_mgr@bank.local",
+        "affected_user": "finance_mgr@bank.local",
+        "action": "MailItemsAccessed"
+      },
+      {
+        "log_id": "LOG008",
+        "timestamp": "2026-03-27T11:15:00Z",
+        "source": "sharepoint",
+        "Operation": "FileDownloaded",
+        "UserId": "finance_mgr@bank.local",
+        "ClientIP": "193.168.0.50",
+        "SourceRelativeUrl": "Shared Documents/Finance/Wire_Transfer_Approval_Protocols.pdf",
+        "source_ip": "193.168.0.50",
+        "user": "finance_mgr@bank.local",
+        "affected_user": "finance_mgr@bank.local",
+        "action": "file_access"
+      },
+      {
+        "log_id": "LOG009",
+        "timestamp": "2026-03-27T11:16:30Z",
+        "source": "sharepoint",
+        "Operation": "FileDownloaded",
+        "UserId": "finance_mgr@bank.local",
+        "ClientIP": "10.0.20.15",
+        "SourceRelativeUrl": "Shared Documents/Finance/Monthly_Report.xlsx",
+        "source_ip": "10.0.20.15",
+        "user": "finance_mgr@bank.local",
+        "affected_user": "finance_mgr@bank.local",
+        "action": "file_access"
+      },
+      {
+        "log_id": "LOG010",
+        "timestamp": "2026-03-27T11:20:00Z",
+        "source": "office365",
+        "Operation": "Send",
+        "UserId": "finance_mgr@bank.local",
+        "ClientIP": "193.168.0.50",
+        "Recipients": [
+          "vendor@external.com"
+        ],
+        "source_ip": "193.168.0.50",
+        "user": "finance_mgr@bank.local",
+        "affected_user": "finance_mgr@bank.local",
+        "action": "Send"
+      }
+    ],
+    "event_count": 8,
+    "ioc_matches": []
+  },
+  {
+    "incident_id": "INC-3A2B5B7F",
+    "created_at": "2026-03-28T22:42:42.591049+00:00",
+    "severity": "info",
+    "risk_score": 0.149,
+    "confidence": 0.112,
+    "incident_summary": "Suspicious activity detected from 10.0.30.5.",
+    "entities": {
+      "source_ip": "10.0.30.5",
+      "user": "it.admin@bank.local"
+    },
+    "mitre_attack": [],
+    "detections": [],
+    "attack_types": [],
+    "attack_chain": null,
+    "attack_timeline": [
+      {
+        "timestamp": "2026-03-27T11:06:00+00:00",
+        "event": "network_event",
+        "entity": "10.0.30.5",
+        "detail": "10.0.30.5 \u2192 New-InboxRule (user: it.admin@bank.local)"
+      }
+    ],
+    "linked_events": [
+      {
+        "log_id": "LOG006",
+        "timestamp": "2026-03-27T11:06:00Z",
+        "source": "office365",
+        "Operation": "New-InboxRule",
+        "UserId": "it.admin@bank.local",
+        "ClientIP": "10.0.30.5",
+        "Parameters": {
+          "Name": "AutoSort",
+          "MoveToFolder": "Archive"
+        },
+        "source_ip": "10.0.30.5",
+        "user": "it.admin@bank.local",
+        "affected_user": "it.admin@bank.local",
+        "action": "New-InboxRule"
+      }
+    ],
+    "event_count": 1,
+    "ioc_matches": [],
+    "risk_breakdown": {
+      "anomaly_component": 0.149,
+      "intel_component": 0.0,
+      "correlation_component": 0.0,
+      "chain_component": 0.0,
+      "graph_component": 0.0
+    }
+  },
+  {
+    "incident_id": "INC-5BBD88A5",
+    "created_at": "2026-03-28T22:42:41.823396+00:00",
+    "severity": "info",
+    "risk_score": 0.148,
+    "confidence": 0.111,
+    "incident_summary": "Suspicious activity detected from 10.0.25.10.",
+    "entities": {
+      "source_ip": "10.0.25.10",
+      "user": "hr.user@bank.local"
+    },
+    "mitre_attack": [],
+    "detections": [],
+    "attack_types": [],
+    "attack_chain": null,
+    "attack_timeline": [
+      {
+        "timestamp": "2026-03-27T11:01:30+00:00",
+        "event": "network_event",
+        "entity": "10.0.25.10",
+        "detail": "10.0.25.10 \u2192 login (user: hr.user@bank.local)"
+      }
+    ],
+    "linked_events": [
+      {
+        "log_id": "LOG004",
+        "timestamp": "2026-03-27T11:01:30Z",
+        "source": "azure_ad",
+        "OperationName": "Sign-in activity",
+        "UserPrincipalName": "hr.user@bank.local",
+        "IpAddress": "10.0.25.10",
+        "Location": "Mumbai, IN",
+        "RiskState": "none",
+        "source_ip": "10.0.25.10",
+        "user": "hr.user@bank.local",
+        "affected_user": "hr.user@bank.local",
+        "action": "login"
+      }
+    ],
+    "event_count": 1,
+    "ioc_matches": [],
+    "risk_breakdown": {
+      "anomaly_component": 0.148,
+      "intel_component": 0.0,
+      "correlation_component": 0.0,
+      "chain_component": 0.0,
+      "graph_component": 0.0
+    }
+  }
+]

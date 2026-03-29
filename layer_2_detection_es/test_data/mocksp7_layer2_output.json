@@ -1,0 +1,386 @@
+[
+  {
+    "incident_id": "INC-FF38EE3E",
+    "created_at": "2026-03-28T22:42:55.878740+00:00",
+    "severity": "high",
+    "risk_score": 0.762,
+    "confidence": 0.972,
+    "incident_summary": "Suspicious activity detected from 198.51.100.77.",
+    "entities": {
+      "source_ip": "198.51.100.77"
+    },
+    "mitre_attack": [
+      {
+        "technique": "T1190",
+        "name": "Exploit Public-Facing Application",
+        "tactic": "Initial Access"
+      }
+    ],
+    "detections": [
+      {
+        "type": "web_sqli_detected",
+        "source_ip": "198.51.100.77",
+        "url": "/store/products.aspx?id=12'; EXEC sp_configure 'show advanced options', 1; RECONFIGURE; EXEC sp_configure 'xp_cmdshell', 1; RECONFIGURE;--",
+        "pattern": "exec sp_",
+        "mitre": "T1190"
+      }
+    ],
+    "attack_types": [
+      "web_sqli_detected"
+    ],
+    "attack_chain": null,
+    "attack_timeline": [
+      {
+        "timestamp": "2026-03-28T08:14:22+00:00",
+        "event": "network_event",
+        "entity": "198.51.100.77",
+        "detail": "198.51.100.77 \u2192 ALLOWED"
+      },
+      {
+        "timestamp": "2026-03-28T08:14:22.000Z",
+        "event": "web_sqli_detected",
+        "detail": "source_ip=198.51.100.77 | url=/store/products.aspx?id=12'; EXEC sp_configure 'show advanced options', 1; RECONFIGURE; EXEC sp_configure 'xp_cmdshell', 1; RECONFIGURE;-- | pattern=exec sp_ | mitre=T1190"
+      }
+    ],
+    "linked_events": [
+      {
+        "timestamp": "2026-03-28T08:14:22.000Z",
+        "log_source": "Cloud_WAF",
+        "src_ip": "198.51.100.77",
+        "http_method": "GET",
+        "http_uri": "/store/products.aspx?id=12'; EXEC sp_configure 'show advanced options', 1; RECONFIGURE; EXEC sp_configure 'xp_cmdshell', 1; RECONFIGURE;--",
+        "http_user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        "action": "ALLOWED",
+        "http_response_code": 200,
+        "source_ip": "198.51.100.77",
+        "url": "/store/products.aspx?id=12'; EXEC sp_configure 'show advanced options', 1; RECONFIGURE; EXEC sp_configure 'xp_cmdshell', 1; RECONFIGURE;--"
+      }
+    ],
+    "event_count": 1,
+    "ioc_matches": [],
+    "risk_breakdown": {
+      "anomaly_component": 0.162,
+      "intel_component": 0.0,
+      "correlation_component": 0.6,
+      "chain_component": 0.0,
+      "graph_component": 0.0
+    }
+  },
+  {
+    "incident_id": "INC-85892472",
+    "created_at": "2026-03-28T22:42:56.180242+00:00",
+    "severity": "medium",
+    "risk_score": 0.596,
+    "confidence": 0.979,
+    "incident_summary": "lateral movement by svc_vuln_scanner. suspicious command execution by svc_vuln_scanner. targeting HR-WORKSTATION-05.",
+    "entities": {
+      "source_ip": "10.0.10.99",
+      "destination_ip": "HR-WORKSTATION-05",
+      "user": "svc_vuln_scanner"
+    },
+    "mitre_attack": [
+      {
+        "technique": "T1021",
+        "name": "Remote Services",
+        "tactic": "Lateral Movement"
+      },
+      {
+        "technique": "T1059",
+        "name": "Command and Scripting Interpreter",
+        "tactic": "Execution"
+      }
+    ],
+    "detections": [
+      {
+        "type": "lateral_movement_detected",
+        "user": "svc_vuln_scanner",
+        "hosts_accessed": 3,
+        "event_count": 3
+      },
+      {
+        "type": "suspicious_command_execution",
+        "user": "BANKLOCAL\\svc_vuln_scanner",
+        "host": "",
+        "source_ip": "",
+        "pattern": "cmd.exe /c",
+        "command": "cmd.exe /c systeminfo",
+        "mitre": "T1059"
+      }
+    ],
+    "attack_types": [
+      "lateral_movement_detected",
+      "suspicious_command_execution"
+    ],
+    "attack_chain": null,
+    "attack_timeline": [
+      {
+        "timestamp": "2026-03-27T15:00:00+00:00",
+        "event": "network_event",
+        "entity": "10.0.10.99",
+        "detail": "10.0.10.99 \u2192 login_success \u2192 HR-WORKSTATION-05 (user: svc_vuln_scanner)"
+      },
+      {
+        "timestamp": "2026-03-27T15:00:00+00:00",
+        "event": "login_success",
+        "entity": "svc_vuln_scanner",
+        "detail": "Successful login by svc_vuln_scanner from 10.0.10.99"
+      },
+      {
+        "timestamp": "2026-03-27T15:00:00+00:00",
+        "event": "network_event",
+        "entity": "10.0.10.99",
+        "detail": "10.0.10.99 \u2192 login_success \u2192 FIN-WORKSTATION-02 (user: svc_vuln_scanner)"
+      },
+      {
+        "timestamp": "2026-03-27T15:00:01+00:00",
+        "event": "network_event",
+        "entity": "10.0.10.99",
+        "detail": "10.0.10.99 \u2192 login_success \u2192 ENG-WORKSTATION-11 (user: svc_vuln_scanner)"
+      },
+      {
+        "timestamp": "2026-03-27T15:00:01+00:00",
+        "event": "login_success",
+        "entity": "svc_vuln_scanner",
+        "detail": "Successful login by svc_vuln_scanner from 10.0.10.99"
+      },
+      {
+        "timestamp": "2026-03-27T15:00:01+00:00",
+        "event": "network_event",
+        "entity": "10.0.10.99",
+        "detail": "10.0.10.99 \u2192 network_connection \u2192 10.0.40.55"
+      },
+      {
+        "timestamp": "2026-03-27T15:00:01Z",
+        "event": "lateral_movement_detected",
+        "detail": "user=svc_vuln_scanner | hosts_accessed=3 | event_count=3"
+      },
+      {
+        "timestamp": "2026-03-27T15:00:02+00:00",
+        "event": "network_event",
+        "entity": "BANKLOCAL\\svc_vuln_scanner",
+        "detail": "process_execution (user: BANKLOCAL\\svc_vuln_scanner)"
+      },
+      {
+        "timestamp": "2026-03-27T15:00:02+00:00",
+        "event": "command_execution",
+        "entity": "BANKLOCAL\\svc_vuln_scanner",
+        "detail": "Command: cmd.exe /c systeminfo (user: BANKLOCAL\\svc_vuln_scanner)"
+      },
+      {
+        "timestamp": "2026-03-27T15:00:02Z",
+        "event": "suspicious_command_execution",
+        "detail": "user=BANKLOCAL\\svc_vuln_scanner | host= | source_ip= | pattern=cmd.exe /c | command=cmd.exe /c systeminfo | mitre=T1059"
+      },
+      {
+        "timestamp": "2026-03-27T15:00:03+00:00",
+        "event": "network_event",
+        "entity": "10.0.10.99",
+        "detail": "10.0.10.99 \u2192 login_success \u2192 OPS-WORKSTATION-07 (user: svc_vuln_scanner)"
+      },
+      {
+        "timestamp": "2026-03-27T15:00:03+00:00",
+        "event": "login_success",
+        "entity": "svc_vuln_scanner",
+        "detail": "Successful login by svc_vuln_scanner from 10.0.10.99"
+      },
+      {
+        "timestamp": "2026-03-27T15:00:03Z",
+        "event": "lateral_movement_detected",
+        "detail": "user=svc_vuln_scanner | hosts_accessed=4 | event_count=4"
+      },
+      {
+        "timestamp": "2026-03-27T15:00:04+00:00",
+        "event": "network_event",
+        "entity": "BANKLOCAL\\svc_vuln_scanner",
+        "detail": "process_execution (user: BANKLOCAL\\svc_vuln_scanner)"
+      },
+      {
+        "timestamp": "2026-03-27T15:00:04+00:00",
+        "event": "command_execution",
+        "entity": "BANKLOCAL\\svc_vuln_scanner",
+        "detail": "Command: powershell Get-HotFix (user: BANKLOCAL\\svc_vuln_scanner)"
+      },
+      {
+        "timestamp": "2026-03-27T15:00:04Z",
+        "event": "suspicious_command_execution",
+        "detail": "user=BANKLOCAL\\svc_vuln_scanner | host= | source_ip= | pattern=powershell | command=powershell Get-HotFix | mitre=T1059"
+      },
+      {
+        "timestamp": "2026-03-27T15:05:00+00:00",
+        "event": "network_event",
+        "entity": "10.0.10.99",
+        "detail": "10.0.10.99 \u2192 network_connection \u2192 10.0.40.60"
+      }
+    ],
+    "linked_events": [
+      {
+        "log_id": "LOG002",
+        "timestamp": "2026-03-27T15:00:00Z",
+        "source": "windows_security",
+        "EventID": 4624,
+        "user": "svc_vuln_scanner",
+        "logon_type": 3,
+        "auth_package": "NTLM",
+        "src_ip": "10.0.10.99",
+        "dest_host": "HR-WORKSTATION-05",
+        "source_ip": "10.0.10.99",
+        "destination_ip": "HR-WORKSTATION-05",
+        "affected_user": "svc_vuln_scanner",
+        "action": "login_success"
+      },
+      {
+        "log_id": "LOG003",
+        "timestamp": "2026-03-27T15:00:00Z",
+        "source": "windows_security",
+        "EventID": 4624,
+        "user": "svc_vuln_scanner",
+        "logon_type": 3,
+        "auth_package": "NTLM",
+        "src_ip": "10.0.10.99",
+        "dest_host": "FIN-WORKSTATION-02",
+        "source_ip": "10.0.10.99",
+        "destination_ip": "FIN-WORKSTATION-02",
+        "affected_user": "svc_vuln_scanner",
+        "action": "login_success"
+      },
+      {
+        "log_id": "LOG004",
+        "timestamp": "2026-03-27T15:00:01Z",
+        "source": "windows_security",
+        "EventID": 4624,
+        "user": "svc_vuln_scanner",
+        "logon_type": 3,
+        "auth_package": "NTLM",
+        "src_ip": "10.0.10.99",
+        "dest_host": "ENG-WORKSTATION-11",
+        "source_ip": "10.0.10.99",
+        "destination_ip": "ENG-WORKSTATION-11",
+        "affected_user": "svc_vuln_scanner",
+        "action": "login_success"
+      },
+      {
+        "log_id": "LOG005",
+        "timestamp": "2026-03-27T15:00:01Z",
+        "source": "zeek",
+        "src_ip": "10.0.10.99",
+        "dest_ip": "10.0.40.55",
+        "dest_port": 445,
+        "service": "smb",
+        "conn_state": "SF",
+        "source_ip": "10.0.10.99",
+        "destination_ip": "10.0.40.55",
+        "action": "network_connection"
+      },
+      {
+        "log_id": "LOG006",
+        "timestamp": "2026-03-27T15:00:02Z",
+        "source": "sysmon",
+        "EventID": 1,
+        "Image": "C:\\\\Windows\\\\System32\\\\cmd.exe",
+        "CommandLine": "cmd.exe /c systeminfo",
+        "User": "BANKLOCAL\\\\svc_vuln_scanner",
+        "ParentImage": "C:\\\\Windows\\\\System32\\\\wbem\\\\WmiPrvSE.exe",
+        "user": "BANKLOCAL\\svc_vuln_scanner",
+        "affected_user": "BANKLOCAL\\svc_vuln_scanner",
+        "action": "process_execution",
+        "command_line": "cmd.exe /c systeminfo"
+      },
+      {
+        "log_id": "LOG007",
+        "timestamp": "2026-03-27T15:00:03Z",
+        "source": "windows_security",
+        "EventID": 4624,
+        "user": "svc_vuln_scanner",
+        "logon_type": 3,
+        "auth_package": "NTLM",
+        "src_ip": "10.0.10.99",
+        "dest_host": "OPS-WORKSTATION-07",
+        "source_ip": "10.0.10.99",
+        "destination_ip": "OPS-WORKSTATION-07",
+        "affected_user": "svc_vuln_scanner",
+        "action": "login_success"
+      },
+      {
+        "log_id": "LOG008",
+        "timestamp": "2026-03-27T15:00:04Z",
+        "source": "sysmon",
+        "EventID": 1,
+        "Image": "powershell.exe",
+        "CommandLine": "powershell Get-HotFix",
+        "User": "BANKLOCAL\\\\svc_vuln_scanner",
+        "user": "BANKLOCAL\\svc_vuln_scanner",
+        "affected_user": "BANKLOCAL\\svc_vuln_scanner",
+        "action": "process_execution",
+        "command_line": "powershell Get-HotFix"
+      },
+      {
+        "log_id": "LOG009",
+        "timestamp": "2026-03-27T15:05:00Z",
+        "source": "zeek",
+        "src_ip": "10.0.10.99",
+        "dest_ip": "10.0.40.60",
+        "dest_port": 445,
+        "service": "smb",
+        "conn_state": "SF",
+        "source_ip": "10.0.10.99",
+        "destination_ip": "10.0.40.60",
+        "action": "network_connection"
+      }
+    ],
+    "event_count": 8,
+    "ioc_matches": []
+  },
+  {
+    "incident_id": "INC-266EFD47",
+    "created_at": "2026-03-28T22:42:53.744420+00:00",
+    "severity": "info",
+    "risk_score": 0.148,
+    "confidence": 0.111,
+    "incident_summary": "Suspicious activity detected from 10.0.20.10.",
+    "entities": {
+      "source_ip": "10.0.20.10",
+      "user": "it.admin"
+    },
+    "mitre_attack": [],
+    "detections": [],
+    "attack_types": [],
+    "attack_chain": null,
+    "attack_timeline": [
+      {
+        "timestamp": "2026-03-27T14:58:00+00:00",
+        "event": "network_event",
+        "entity": "10.0.20.10",
+        "detail": "10.0.20.10 \u2192 login_success (user: it.admin)"
+      },
+      {
+        "timestamp": "2026-03-27T14:58:00+00:00",
+        "event": "login_success",
+        "entity": "it.admin",
+        "detail": "Successful login by it.admin from 10.0.20.10"
+      }
+    ],
+    "linked_events": [
+      {
+        "log_id": "LOG001",
+        "timestamp": "2026-03-27T14:58:00Z",
+        "source": "windows_security",
+        "EventID": 4624,
+        "user": "it.admin",
+        "logon_type": 2,
+        "src_ip": "10.0.20.10",
+        "source_ip": "10.0.20.10",
+        "affected_user": "it.admin",
+        "action": "login_success"
+      }
+    ],
+    "event_count": 1,
+    "ioc_matches": [],
+    "risk_breakdown": {
+      "anomaly_component": 0.148,
+      "intel_component": 0.0,
+      "correlation_component": 0.0,
+      "chain_component": 0.0,
+      "graph_component": 0.0
+    }
+  }
+]
