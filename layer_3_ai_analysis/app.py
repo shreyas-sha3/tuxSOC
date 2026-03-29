@@ -7,6 +7,7 @@ from pydantic import BaseModel
 # Added Union here!
 from typing import Optional, List, Any, Union 
 from ai_orchestrator import run_ai_analysis
+from benchmark_orchestrator import run_benchmark_analysis as benchmark_flow
 
 from fastapi import FastAPI, HTTPException, Body, BackgroundTasks
 
@@ -26,6 +27,7 @@ class AiAnalysis(BaseModel):
     recommended_actions: Optional[List[str]]
     ai_failed:           bool
     cis_violations:      Optional[List[dict]] = []
+    playbook_raw:        Optional[str] = None
 
 class CriterionEval(BaseModel):
     triggered: Optional[bool]
@@ -104,11 +106,17 @@ async def analyze(background_tasks: BackgroundTasks, data: Union[dict, list] = B
             count = len(data)
             # Queue each incident in the list separately for the background worker
             for incident in data:
-                background_tasks.add_task(run_ai_analysis, incident)
+                if incident.get("is_benchmark_sequence"):
+                    background_tasks.add_task(benchmark_flow, incident)
+                else:
+                    background_tasks.add_task(run_ai_analysis, incident)
         else:
             incident_id = data.get("incident_id") or data.get("event_id") or "UNKNOWN"
             count = 1
-            background_tasks.add_task(run_ai_analysis, data)
+            if data.get("is_benchmark_sequence"):
+                background_tasks.add_task(benchmark_flow, data)
+            else:
+                background_tasks.add_task(run_ai_analysis, data)
 
         # Return immediately so the test script/Layer 2 doesn't timeout
         return JSONResponse(
@@ -127,14 +135,9 @@ async def analyze(background_tasks: BackgroundTasks, data: Union[dict, list] = B
             detail=f"Failed to queue incidents: {str(e)}"
         )
 
-
 if __name__ == "__main__":
     import uvicorn
-    import logging
-    
-    log = logging.getLogger("uvicorn")
-    log.setLevel(logging.ERROR)
-    log = logging.getLogger("uvicorn.access")
-    log.setLevel(logging.ERROR)
-    
-    uvicorn.run(app, host="0.0.0.0", port=8001, access_log=False)
+    uvicorn.run(app, host="0.0.0.0", port=8003)
+
+
+

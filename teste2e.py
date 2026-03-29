@@ -1008,7 +1008,7 @@ print("🚀 [TEST] Firing Simulated Incident into Layer 3 (AI Analysis)...")
 
 try:
     # 2. Hit Layer 3 (Send the whole list!)
-    l3_response = requests.post("http://localhost:8001/analyze", json=raw_incident)
+    l3_response = requests.post("http://localhost:8003/analyze", json=raw_incident)
     
     # SAFETY NET: Check for 202 ACCEPTED (not 200)
     if l3_response.status_code == 202:

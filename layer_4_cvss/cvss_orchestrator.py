@@ -12,6 +12,7 @@ from rich.live import Live
 from rich.text import Text
 import threading
 import time
+import atexit
 
 console = Console()
 
@@ -64,11 +65,22 @@ def generate_layout():
     layout["analyses"].update(Panel(a_table, title="🧮 Recent Calculations", border_style="green"))
     return layout
 
+# 1. Create an event flag to signal safe shutdown
+_ui_stop_event = threading.Event()
+
 def _live_updater():
-    with Live(generate_layout(), refresh_per_second=4, screen=True) as live:
-        while True:
-            live.update(generate_layout())
-            time.sleep(0.25)
+    try:
+        with Live(generate_layout(), refresh_per_second=4, screen=True) as live:
+            # 2. Check the flag instead of 'while True'
+            while not _ui_stop_event.is_set():
+                live.update(generate_layout())
+                time.sleep(0.25)
+    except Exception:
+        # Catch safe teardown exceptions when stdout closes
+        pass
+
+# 3. Register the stop event to trigger during interpreter shutdown
+atexit.register(lambda: _ui_stop_event.set())
 
 threading.Thread(target=_live_updater, daemon=True).start()
 
@@ -157,7 +169,8 @@ async def score_incident_endpoint(incident: LLMIncidentInput):
                 intent=ai_analysis.intent or "Unknown Threat",
                 kibana_query=ai_analysis.kibana_query,
                 related_logs=incident.related_logs,
-                dora_compliance=incident.dora_compliance
+                dora_compliance=incident.dora_compliance,
+                playbook_raw=ai_analysis.playbook_raw
             )
 
             resp = requests.post(RESPONSE_LAYER_URL, json=l5_payload.model_dump(), timeout=5)

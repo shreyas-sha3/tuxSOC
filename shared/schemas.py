@@ -18,6 +18,7 @@ class AIAnalysis(BaseModel):
     recommended_actions: List[str]
     ai_failed: bool
     cis_violations: List[CISViolation] = Field(default_factory=list)
+    playbook_raw: Optional[str] = None
 
 class LLMIncidentInput(BaseModel):
     event_id: str
@@ -44,3 +45,4 @@ class Layer5Input(BaseModel):
     kibana_query: Optional[str] = None
     related_logs: Optional[list] = []
     dora_compliance: Optional[dict] = None
+    playbook_raw: Optional[str] = None

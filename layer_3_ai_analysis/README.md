@@ -39,13 +39,13 @@ The server starts on `http://0.0.0.0:8001`.
 Interactive Swagger UI for manual testing:
 
 ```
-http://localhost:8001/docs
+http://localhost:8003/docs
 ```
 
 Health check:
 
 ```
-GET http://localhost:8001/health
+GET http://localhost:8003/health
 → {"status": "online", "engine": "llama3-8b"}
 ```
 

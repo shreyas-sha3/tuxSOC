@@ -137,3 +137,72 @@ def build_dora_classification_prompt(incident_id: str, observables: dict, ai_ana
         "containment_status": "In Progress"
     }}
 }}"""
+
+def build_benchmark_analysis_prompt(incident: dict) -> str:
+    """
+    Prompt designed exclusively for complete methodology analysis and perfect counter-playbook generation,
+    following the specific 4-Phase forensic structure.
+    """
+    evidence = incident.get("correlated_evidence", [])
+    telemetry = json.dumps(evidence, indent=2)
+
+    return f"""Role: You are a Senior Incident Response Handler and SOC Lead.
+
+Task: Perform a deep forensic methodology analysis and generate a 4-Phase Incident Response Playbook based on the provided JSON logs.
+
+Log Data:
+{telemetry}
+
+
+### EXPECTED STRUCTURE:
+
+## 🚨 Incident Overview: [High-Level Threat Name]
+* **Target User:** [UserPrincipalName or UserId]
+* **Threat Actor IP:** [Suspicious IP Address]
+* **Critical Actions:** [3-4 top defining factors/actions identified from the JSON]
+
+---
+
+## 🛠️ Phase 1: Preparation & Identification
+*Detailed bullet points on how the breach was scoped and identified using the logs.*
+
+## 🛡️ Phase 2: Containment
+*Immediate actions to stop the attacker (e.g., account disabling, token revocation, firewall rules).*
+
+## 🔍 Phase 3: Investigation & Eradication
+*Deep dive into log audit, lateral movement checks, and cleaning the environment.*
+
+## 📈 Phase 4: Recovery & Post-Incident
+*Post-mortem steps, policy changes, and preventative training.*
+
+### CRITICAL REQUIREMENTS:
+*   NO Generic fluff.
+*   NO CVSS scores or methodology metrics.
+*   Mention the most critical defining factors of the attack EXPLICITLY derived from the JSON.
+*   The response MUST be a highly professional, ready-to-use Markdown forensic report."""
+
+def build_direct_l0_analysis_prompt(incident: dict) -> str:
+    """
+    Prompt for direct ingestion from Layer 0, bypassing intermediate processing.
+    Focuses on raw log triage and rapid intent identification.
+    """
+    evidence = incident.get("correlated_evidence", [])
+    log_summary = extract_log_summary(evidence)
+    telemetry = json.dumps(incident, indent=2)
+
+    return f"""You are a Tier 1/2 Triage Analyst receiving raw telemetry directly from ingestion.
+Perform a rapid assessment of the provided logs to determine if immediate escalation is required.
+
+### RAW TELEMETRY:
+{telemetry}
+
+### LOG SUMMARY:
+{log_summary}
+
+### REQUIRED OUTPUT (JSON ONLY):
+{{
+    "intent": "Rapid intent classification",
+    "severity": "critical | high | medium | low",
+    "narrative": "Brief summary of the raw findings and why this was flagged.",
+    "is_immediate_escalation": true/false
+}}"""

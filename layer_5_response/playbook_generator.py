@@ -47,8 +47,26 @@ def generate_markdown_playbook(incident_data: Dict, recommendations: List[str]) 
     import urllib.parse
     kibana_link = f"http://localhost:5601/app/discover#/?_g=(time:(from:now-15m,to:now))&_a=(query:(language:kuery,query:'{urllib.parse.quote(kibana_query)}'))"
 
+    # Check if this is a benchmark sequence with a raw playbook
+    playbook_raw = incident_data.get("playbook_raw")
+    is_benchmark = (intent in ["BENCHMARK_SIMULATION", "BENCHMARK_METHODOLOGY_STUDY"]) or playbook_raw is not None
+
     # Generate the markdown content
-    markdown_content = f"""# TUXSOC INCIDENT RESPONSE PLAYBOOK
+    if is_benchmark and playbook_raw:
+        markdown_content = f"""# TUXSOC BENCHMARK FORENSIC REPORT
+        
+## INCIDENT HEADER
+- **Playbook ID:** {playbook_id}
+- **Event ID:** {event_id}
+- **Timestamp:** {timestamp}
+- **Status:** Benchmark Methodology Analysis Complete
+
+{playbook_raw}
+
+---
+"""
+    else:
+        markdown_content = f"""# TUXSOC INCIDENT RESPONSE PLAYBOOK
 
 ## INCIDENT HEADER
 - **Playbook ID:** {playbook_id}
@@ -91,15 +109,16 @@ def generate_markdown_playbook(incident_data: Dict, recommendations: List[str]) 
 - **Article 19 Notification Type:** {notif_type}
 """
 
-    markdown_content += """
+    if not is_benchmark:
+        markdown_content += """
 ## RECOMMENDED ANALYST STEPS
 """
 
-    # Add recommendations with checkboxes
-    for i, rec in enumerate(recommendations, 1):
-        markdown_content += f"{i}. [ ] {rec}\n"
+        # Add recommendations with checkboxes
+        for i, rec in enumerate(recommendations, 1):
+            markdown_content += f"{i}. [ ] {rec}\n"
 
-    markdown_content += f"""
+        markdown_content += f"""
 ## AUTOMATED ACTIONS EXECUTED
 *(This section will be populated by the orchestration layer with actions taken)*
 """

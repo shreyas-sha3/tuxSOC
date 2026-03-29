@@ -131,7 +131,7 @@ ES_USER = os.getenv("ES_USER", "elastic")
 ES_PASS = os.getenv("ES_PASSWORD", "changeme")
 ES_API_KEY = os.getenv("ES_API_KEY", None)
 
-LAYER_3_URL = os.getenv("LAYER_3_URL", "http://localhost:8001/analyze")
+LAYER_3_URL = os.getenv("LAYER_3_URL", "http://localhost:8003/analyze")
 POLL_INTERVAL_SECONDS = int(os.getenv("POLL_INTERVAL", "30"))
 
 # ── Deduplication window (in-memory, stateless per process restart)

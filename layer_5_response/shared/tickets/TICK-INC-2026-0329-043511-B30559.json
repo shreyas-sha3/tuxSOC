@@ -1,26 +1,26 @@
 {
-  "ticket_id": "TICK-INC-2026-0328-234351-FD5530",
-  "timestamp": "2026-03-29T05:14:04.005983",
-  "event_id": "INC-2026-0328-234351-FD5530",
+  "ticket_id": "TICK-INC-2026-0329-043511-B30559",
+  "timestamp": "2026-03-29T10:05:18.098258",
+  "event_id": "INC-2026-0329-043511-B30559",
   "severity": "CRITICAL",
   "base_score": 9.8,
-  "attacker_ip": "135.14.5.9",
+  "attacker_ip": "122.14.5.9",
   "affected_entity": "Unknown",
   "intent": "WEB.SQLI",
   "status": "RESOLVED",
   "actions_taken": [
     {
       "action": "firewall_block",
-      "target_ip": "135.14.5.9",
+      "target_ip": "122.14.5.9",
       "status": "SUCCESS",
-      "timestamp": 1774741443.5046158
+      "timestamp": 1774758917.5968647
     },
     {
       "action": "soc_alert",
-      "event_id": "INC-2026-0328-234351-FD5530",
+      "event_id": "INC-2026-0329-043511-B30559",
       "severity": "CRITICAL",
       "status": "SENT",
-      "timestamp": 1774741444.0055306
+      "timestamp": 1774758918.097801
     }
   ],
   "recommendations": [
@@ -32,7 +32,7 @@
     "\ud83d\udcca Correlate with threat intelligence feeds",
     "\ud83d\udee1\ufe0f Review relevant security control effectiveness"
   ],
-  "playbook_path": "/home/art3mi5/Documents/Github/TuxSOC/layer_5_response/shared/playbooks/PLAY-INC-2026-0328-234351-FD5530.md",
+  "playbook_path": "/home/art3mi5/Documents/Github/TuxSOC/layer_5_response/shared/playbooks/PLAY-INC-2026-0329-043511-B30559.md",
   "dora_compliance": {
     "article_18_classification": {
       "is_major_incident": true,
@@ -44,39 +44,39 @@
       "criteria_evaluation": {
         "C1_clients_affected": {
           "triggered": true,
-          "rationale": "The incident affected multiple clients due to the potential for SQL injection attacks."
+          "rationale": "The incident affected multiple clients due to the SQLi attack."
         },
         "C2_duration": {
           "triggered": false,
-          "rationale": "The duration of the incident was not sufficient to determine if it exceeded 24 hours."
+          "rationale": "The duration of the incident was less than 4 hours, which is within the acceptable threshold."
         },
         "C3_data_loss": {
           "triggered": true,
-          "rationale": "There is a high likelihood that sensitive data was compromised due to the SQL injection attack."
+          "rationale": "There was a critical data loss due to the SQLi attack, resulting in unauthorized access to sensitive information."
         },
         "C4_criticality": {
           "triggered": true,
-          "rationale": "The incident had critical consequences for the affected clients, including potential financial loss and reputational damage."
+          "rationale": "The incident had critical impact on the business operations and affected multiple services."
         },
         "C5_financial_loss": {
           "triggered": false,
-          "rationale": "While there is a risk of financial loss, it has not been confirmed at this time."
+          "rationale": "There was no financial loss reported due to the incident."
         },
         "C6_geographical_spread": {
           "triggered": true,
-          "rationale": "The incident appears to have originated from a single IP address, indicating potential geographical spread."
+          "rationale": "The incident affected multiple geographical locations, indicating a high level of spread."
         }
       }
     },
     "article_19_initial_notification": {
       "notification_type": "T+4h Initial Notification",
-      "incident_id": "INC-2026-0328-234351-FD5530",
+      "incident_id": "INC-2026-0329-043511-B30559",
       "lei": "BARCLAYS-LEI-213800LBQA1Y9L22JB70",
       "affected_services": [
-        "Online Banking",
-        "Mobile Banking"
+        "Barclays Online Banking",
+        "Barclays Mobile Banking"
       ],
-      "initial_description": "Unauthorised HTTP GET request detected on Barclays network, potentially related to SQL injection attack.",
+      "initial_description": "A critical SQLi attack was detected on the Barclays network, resulting in unauthorized access to sensitive information.",
       "containment_status": "In Progress"
     }
   },

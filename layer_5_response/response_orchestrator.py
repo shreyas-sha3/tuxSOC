@@ -97,7 +97,8 @@ async def respond_to_incident(incident: Layer5Input):
         "affected_entity": safe_target_entity,
         "intent": safe_intent,
         "dora_compliance": incident.dora_compliance,
-        "related_logs": incident.related_logs
+        "related_logs": incident.related_logs,
+        "playbook_raw": incident.playbook_raw
     }
 
     # 5. Document generation
@@ -119,12 +120,26 @@ async def respond_to_incident(incident: Layer5Input):
             log_table.add_column("Source", style="green")
             log_table.add_column("Dest", style="red")
             
-            for index, log in enumerate(incident.related_logs[:10]):
-                ts = str(log.get("@timestamp", ""))
-                action = str(log.get("raw_event", {}).get("action", "") or log.get("event", {}).get("action", "") or "")
-                src = str(log.get("source", {}).get("ip", ""))
-                dst = str(log.get("destination", {}).get("ip", "") or log.get("destination", {}).get("port", ""))
-                log_table.add_row(f"{index+1:02d}", ts, action[:40], src, dst)
+            logs_to_process = incident.related_logs
+            if isinstance(logs_to_process, str):
+                try:
+                    import json
+                    logs_to_process = json.loads(logs_to_process)
+                except Exception:
+                    logs_to_process = [logs_to_process]
+            
+            if isinstance(logs_to_process, list):
+                for index, log in enumerate(logs_to_process[:10]):
+                    if not isinstance(log, dict):
+                        log_table.add_row(f"{index+1:02d}", "N/A", str(log)[:40], "N/A", "N/A")
+                        continue
+                    ts = str(log.get("@timestamp", ""))
+                    action = str(log.get("raw_event", {}).get("action", "") or log.get("event", {}).get("action", "") or "")
+                    src = str(log.get("source", {}).get("ip", ""))
+                    dst = str(log.get("destination", {}).get("ip", "") or log.get("destination", {}).get("port", ""))
+                    log_table.add_row(f"{index+1:02d}", ts, action[:40], src, dst)
+            else:
+                log_table.add_row("01", "N/A", str(logs_to_process)[:40], "N/A", "N/A")
                 
             console.print(log_table)
             if len(incident.related_logs) > 10:
