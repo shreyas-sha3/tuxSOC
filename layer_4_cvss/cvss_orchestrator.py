@@ -211,17 +211,10 @@ def process_incident(incident_data: LLMIncidentInput) -> ScoredIncidentOutput:
     )
 if __name__ == "__main__":
     import uvicorn
-<<<<<<< HEAD
-    # Run Layer 4 on port 8004
-    uvicorn.run(app, host="0.0.0.0", port=8004)
-
-=======
     import logging
-    
-    log = logging.getLogger("uvicorn")
-    log.setLevel(logging.ERROR)
-    log = logging.getLogger("uvicorn.access")
-    log.setLevel(logging.ERROR)
-    
+
+    # Silence uvicorn logs for clean Rich UI
+    logging.getLogger("uvicorn").setLevel(logging.ERROR)
+    logging.getLogger("uvicorn.access").setLevel(logging.ERROR)
+
     uvicorn.run(app, host="0.0.0.0", port=8004, access_log=False)
->>>>>>> testing_final
