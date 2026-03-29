@@ -36,9 +36,12 @@ def generate_soc_ticket(incident_data: Dict, actions_taken: List[Dict], recommen
     )
     status = "RESOLVED" if auto_blocked_success else "OPEN"
 
-    # Generate ticket ID and timestamp
-    ticket_id = f"TICK-{event_id}"
+    # Generate timestamp
     timestamp = datetime.datetime.now().isoformat()
+
+    # Generate sequential ticket ID (Fast)
+    ticket_count = len([f for f in os.listdir(tickets_dir) if f.startswith("TICKET-")])
+    ticket_id = f"TICKET-{ticket_count + 1:03d}"
 
     # Construct the ticket dictionary
     dora_compliance = incident_data.get("dora_compliance")

@@ -5,6 +5,7 @@ import json
 import os
 import requests
 import sys
+import atexit
 import threading
 import time
 from typing import Dict, List, Any
@@ -67,13 +68,31 @@ def generate_layout():
     layout["results"].update(Panel(r_table, title="🛡️ Recent Counter-Playbooks Generated", border_style="yellow"))
     return layout
 
+# 1. Create an event flag to signal safe shutdown
+_ui_stop_event = threading.Event()
+ 
 def _live_updater():
-    with Live(generate_layout(), refresh_per_second=4, screen=True) as live:
-        while True:
-            live.update(generate_layout())
-            time.sleep(0.25)
+    """
+    Background thread to update the Rich Live display.
+    Uses an event flag and robust exception handling to prevent crashes.
+    """
+    try:
+        with Live(generate_layout(), refresh_per_second=4, screen=True) as live:
+            while not _ui_stop_event.is_set():
+                try:
+                    if hasattr(sys.stdout, 'closed') and sys.stdout.closed:
+                        break
+                    live.update(generate_layout())
+                    if _ui_stop_event.wait(0.25):
+                        break
+                except (RuntimeError, IOError, ValueError, AttributeError):
+                    break
+    except Exception:
+        pass
 
-# Start UI Thread
+# 3. Register the stop event to trigger during interpreter shutdown
+atexit.register(lambda: _ui_stop_event.set())
+
 threading.Thread(target=_live_updater, daemon=True).start()
 
 # L4 Target

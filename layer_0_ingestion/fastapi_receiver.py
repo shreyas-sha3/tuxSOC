@@ -45,10 +45,10 @@ async def ingest_benchmark(data: List[Dict[str, Any]] = Body(...)):
         "raw_event": {
             "source_ip": first_log.get("IpAddress") or first_log.get("ClientIP") or "Unknown",
             "affected_user": first_log.get("UserPrincipalName") or first_log.get("UserId") or "Unknown",
-        "action": first_log.get("OperationName") or first_log.get("Operation") or "Unknown Benchmark Sequence",
-        "is_direct_l3": True,
-        "source_layer": "layer_0"
-    }
+            "action": first_log.get("OperationName") or first_log.get("Operation") or "Unknown Benchmark Sequence",
+            "is_direct_l3": True,
+            "source_layer": "layer_0"
+        }
     }
 
     try:

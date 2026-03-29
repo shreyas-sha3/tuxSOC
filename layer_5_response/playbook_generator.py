@@ -35,13 +35,12 @@ def generate_markdown_playbook(incident_data: Dict, recommendations: List[str]) 
     }
     severity_badge = severity_badges.get(severity.upper(), "⚪ UNKNOWN")
 
-    # Generate playbook ID and timestamp
-    timestamp = datetime.datetime.now().isoformat()
-    playbook_id = f"PLAY-{event_id}"
-
-    # Define the file path
+    # Generate sequential playbook ID (Fast)
+    playbook_count = len([f for f in os.listdir(playbooks_dir) if f.startswith("PLAYBOOK-")])
+    playbook_id = f"PLAYBOOK-{playbook_count + 1:03d}"
     file_name = f"{playbook_id}.md"
     file_path = os.path.join(playbooks_dir, file_name)
+    timestamp = datetime.datetime.now().isoformat()
     
     kibana_query = incident_data.get("kibana_query", f'\"{attacker_ip}\"')
     import urllib.parse

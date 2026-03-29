@@ -1,6 +1,6 @@
 {
-  "ticket_id": "TICK-BENCHMARK-LOG001",
-  "timestamp": "2026-03-29T10:05:03.217281",
+  "ticket_id": "TICKET-005",
+  "timestamp": "2026-03-29T10:36:21.906910",
   "event_id": "BENCHMARK-LOG001",
   "severity": "NONE",
   "base_score": 0.0,
@@ -17,6 +17,6 @@
     "\ud83d\udcca Correlate with threat intelligence feeds",
     "\ud83d\udee1\ufe0f Review relevant security control effectiveness"
   ],
-  "playbook_path": "/home/art3mi5/Documents/Github/TuxSOC/layer_5_response/shared/playbooks/PLAY-BENCHMARK-LOG001.md",
+  "playbook_path": "/home/art3mi5/Documents/Github/TuxSOC/layer_5_response/shared/playbooks/PLAYBOOK-005.md",
   "dora_compliance": {}
 }

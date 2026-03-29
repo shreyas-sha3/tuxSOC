@@ -133,10 +133,43 @@ async def respond_to_incident(incident: Layer5Input):
                     if not isinstance(log, dict):
                         log_table.add_row(f"{index+1:02d}", "N/A", str(log)[:40], "N/A", "N/A")
                         continue
-                    ts = str(log.get("@timestamp", ""))
-                    action = str(log.get("raw_event", {}).get("action", "") or log.get("event", {}).get("action", "") or "")
-                    src = str(log.get("source", {}).get("ip", ""))
-                    dst = str(log.get("destination", {}).get("ip", "") or log.get("destination", {}).get("port", ""))
+                        
+                    # 1. Safer Timestamp Extraction
+                    ts = str(log.get("@timestamp") or log.get("timestamp") or "N/A")
+                    
+                    # 2. Robust Action/Event Extraction
+                    raw_event = log.get("raw_event", {})
+                    if not isinstance(raw_event, dict):
+                        raw_event = {}
+                    
+                    event_data = log.get("event", {})
+                    if not isinstance(event_data, dict):
+                        event_data = {}
+                        
+                    action = str(
+                        raw_event.get("action") 
+                        or event_data.get("action") 
+                        or log.get("OperationName") 
+                        or log.get("Operation") 
+                        or "Unknown"
+                    )
+                    
+                    # 3. Network Observables (Handle string vs dict for 'source' and 'destination')
+                    source_data = log.get("source", {})
+                    if not isinstance(source_data, dict):
+                        source_data = {}
+                        
+                    dest_data = log.get("destination", {})
+                    if not isinstance(dest_data, dict):
+                        dest_data = {}
+                        
+                    src = str(source_data.get("ip") or log.get("IpAddress") or log.get("ClientIP") or "N/A")
+                    dst = str(
+                        dest_data.get("ip") 
+                        or dest_data.get("port") 
+                        or "N/A"
+                    )
+                    
                     log_table.add_row(f"{index+1:02d}", ts, action[:40], src, dst)
             else:
                 log_table.add_row("01", "N/A", str(logs_to_process)[:40], "N/A", "N/A")
